@@ -1,0 +1,13 @@
+# Python virtual environments and bytecode
+.venv/
+__pycache__/
+*.py[cod]
+
+# Local RAG runtime data
+data/*.db
+data/*.db-*
+knowledge_base/*.pdf
+knowledge_base/*.docx
+
+# Local environment files
+.env
