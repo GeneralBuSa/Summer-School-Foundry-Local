@@ -7,7 +7,7 @@ from app.domain import Answer
 from app.foundry import FoundryRuntime
 from app.prompting import build_messages
 from app.repository import SQLiteRepository
-from app.retrieval import retrieve_top_chunks
+from app.retrieval import has_confident_match, retrieve_top_chunks
 from app.reranker import rerank
 
 
@@ -16,6 +16,9 @@ def answer_question(
     repository: SQLiteRepository,
     runtime: FoundryRuntime,
     chat_history: list[dict[str, str]] | None = None,
+    top_k: int = TOP_K,
+    min_similarity_score: float = MIN_SIMILARITY_SCORE,
+    alpha: float = 0.7,
 ) -> Answer:
     cleaned_question = question.strip()
     if not cleaned_question:
@@ -29,10 +32,12 @@ def answer_question(
     if not embedding_response.data:
         raise RuntimeError("Soru embedding'i üretilemedi.")
     query_embedding = embedding_response.data[0].embedding
-    results = retrieve_top_chunks(query_embedding, chunks, TOP_K, query_text=cleaned_question)
+    results = retrieve_top_chunks(
+        query_embedding, chunks, top_k, query_text=cleaned_question, alpha=alpha
+    )
     results = rerank(cleaned_question, results)
 
-    if not results or results[0].score < MIN_SIMILARITY_SCORE:
+    if not results or results[0].score < min_similarity_score or not has_confident_match(cleaned_question, query_embedding, chunks):
         return Answer(text=NO_ANSWER_MESSAGE, sources=results, grounded=False)
 
     messages = build_messages(cleaned_question, results, chat_history=chat_history)

@@ -19,4 +19,4 @@ CHUNK_OVERLAP = 120
 TOP_K = 3
 MIN_SIMILARITY_SCORE = 0.35
 NO_ANSWER_MESSAGE = "Bu bilgi yerel bilgi tabanında bulunmuyor."
-SUPPORTED_SUFFIXES = {".md", ".txt", ".pdf", ".docx"}
+SUPPORTED_SUFFIXES = {".md", ".txt", ".pdf", ".docx", ".xlsx", ".csv"}

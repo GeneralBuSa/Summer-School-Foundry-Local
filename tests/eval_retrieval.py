@@ -22,7 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from app.config import DATABASE_PATH, EMBEDDING_MODEL_ALIAS, TOP_K
 from app.foundry import FoundryRuntime
 from app.repository import SQLiteRepository
-from app.retrieval import retrieve_top_chunks
+from app.retrieval import has_confident_match, retrieve_top_chunks
 from app.reranker import rerank
 
 EVAL_DATASET_PATH = Path(__file__).resolve().parent / "eval_dataset.json"
@@ -80,7 +80,8 @@ def evaluate_retrieval(
         # Bilgi tabanı dışı soru kontrolü
         if expect_no_answer:
             no_answer_total += 1
-            if not retrieval_results or retrieval_results[0].score < 0.35:
+            confident = has_confident_match(question, query_embedding, chunks)
+            if not retrieval_results or retrieval_results[0].score < 0.35 or not confident:
                 no_answer_correct += 1
                 results_detail.append({
                     "id": qid, "question": question, "status": "✅ Doğru RED",
@@ -177,9 +178,9 @@ def print_eval_report(metrics: dict) -> None:
 
     # Kalite Tavsiyesi
     hr = metrics["hit_rate"]
-    if hr >= 0.9:
+    if hr >= 0.9 and metrics["no_answer_accuracy"] >= 0.8:
         print("  🟢 Retrieval kalitesi mükemmel.")
-    elif hr >= 0.7:
+    elif hr >= 0.7 and metrics["no_answer_accuracy"] >= 0.6:
         print("  🟡 Retrieval kalitesi iyi, ama iyileştirme alanı var.")
     else:
         print("  🔴 Retrieval kalitesi düşük — chunk boyutu, overlap veya embedding modeli gözden geçirilmeli.")

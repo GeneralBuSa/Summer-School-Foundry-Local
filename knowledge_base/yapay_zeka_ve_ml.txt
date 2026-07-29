@@ -1,0 +1,46 @@
+YAPAY ZEKA VE MAKİNE ÖĞRENMESİ TEMELLERİ
+
+Yapay zeka (AI), insan zekasını taklit eden ve verilen verilerden öğrenerek kararlar alan sistemler bütünüdür.
+
+1. Makine Öğrenmesi (Machine Learning):
+- Denetimli Öğrenme (Supervised Learning): Etiketli verilerle model eğitilir (Örn: Sınıflandırma, Regresyon).
+- Denetimsiz Öğrenme (Unsupervised Learning): Etiketsiz verilerde desen bulma (Örn: Kümeleme, K-Means).
+- Pekiştirmeli Öğrenme (Reinforcement Learning): Ödül ve ceza mekanizması ile öğrenme.
+
+2. Derin Öğrenme (Deep Learning):
+Çok katmanlı yapay sinir ağlarını (ANN, CNN, RNN, Transformer) kullanarak büyük verilerden karmaşık temsil çıkarma alanıdır.
+Yapay Zeka, Makine Öğrenmesi ve RAG
+
+Makine öğrenmesi, açık kurallar yazmak yerine veriden örüntü öğrenen yöntemler
+bütünüdür. Denetimli öğrenmede girişlerle birlikte etiketler bulunur. Sınıflandırma
+bir örneği sınıfa atar; regresyon sayısal değer tahmin eder. Denetimsiz öğrenmede
+etiket yoktur; kümeleme, boyut indirgeme ve anomali keşfi gibi amaçlar öne çıkar.
+
+Pekiştirmeli öğrenmede bir ajan ortamla etkileşir, eylem seçer ve ödül veya ceza
+alır. Amaç uzun vadeli toplam ödülü artıran politika öğrenmektir. Eğitim, doğrulama
+ve test verisi birbirinden ayrılmalıdır. Aşırı öğrenme (overfitting), modelin
+eğitim verisini ezberleyip yeni örneklerde kötüleşmesidir. Düzenlileştirme,
+erken durdurma ve daha çeşitli veri bu sorunu azaltabilir.
+
+Derin öğrenme çok katmanlı yapay sinir ağları kullanır. CNN görüntülerde yerel
+özellikleri, RNN sıralı verileri, Transformer ise attention mekanizmasıyla uzun
+bağlam ilişkilerini işleyebilir. Büyük dil modelleri, token dizilerinden sonraki
+token olasılığını öğrenerek metin üretir. Model çıktısı akıcı olsa bile her zaman
+doğru değildir; bu nedenle kaynak kontrolü ve değerlendirme gerekir.
+
+Embedding, metni sayısal vektöre dönüştürür. Anlamsal olarak yakın metinlerin
+vektörleri çoğunlukla yakın olur. RAG akışı retrieve, augment ve generate
+aşamalarından oluşur: önce bilgi tabanından ilgili parçalar alınır, sonra prompt'a
+bağlam olarak eklenir, son olarak dil modeli cevabı üretir. RAG modelin eğitim
+verisini değiştirmez; cevap anında dış bilgi sağlar.
+
+İyi bir RAG sistemi belge parçalarını çok büyük veya çok küçük seçmemelidir.
+Başlık ve paragraf sınırlarını korumak, kaynak bilgisini her parçada tutmak ve
+overlap kullanmak retrieval kalitesini artırabilir. BM25 özel kelime ve kodları,
+embedding araması ise anlam benzerliğini yakalar. İkisini birleştirmek hibrit
+arama sağlar. Top-k sonuçlar cevap öncesinde yeniden sıralanabilir.
+
+Güvenli bir sistem bağlam dışındaki sorularda “Bu bilgi yerel bilgi tabanında
+bulunmuyor.” demeli, kaynak uydurmamalı ve hassas bilgileri gereksiz yere dışarı
+aktarmamalıdır. Kalite ölçümünde Hit Rate, MRR, anahtar kelime eşleşmesi ve bilgi
+dışı soru doğruluğu birlikte izlenmelidir.

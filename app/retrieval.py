@@ -21,6 +21,12 @@ def _tokenize(text: str) -> list[str]:
     return re.findall(r"\w+", text.lower())
 
 
+_STOPWORDS = {
+    "ve", "veya", "ile", "bir", "bu", "şu", "ne", "nedir", "nasıl", "hangi",
+    "için", "olan", "olarak", "mi", "mı", "mu", "mü", "de", "da", "çok",
+}
+
+
 def compute_bm25_scores(query_text: str, chunks: Sequence[StoredChunk]) -> list[float]:
     """BM25 Okapi algoritması ile kelime anahtarlı arama skorları hesaplar."""
     query_tokens = _tokenize(query_text)
@@ -96,6 +102,15 @@ def reciprocal_rank_fusion(
     return [s / max_score for s in rrf_scores]
 
 
+def _normalize(values: list[float]) -> list[float]:
+    if not values:
+        return []
+    low, high = min(values), max(values)
+    if high == low:
+        return [1.0 if high > 0 else 0.0 for _ in values]
+    return [(value - low) / (high - low) for value in values]
+
+
 def retrieve_top_chunks(
     query_embedding: Sequence[float],
     chunks: Sequence[StoredChunk],
@@ -125,7 +140,15 @@ def retrieve_top_chunks(
 
     if query_text and query_text.strip():
         bm25_scores = compute_bm25_scores(query_text, chunks)
-        final_scores = reciprocal_rank_fusion(vec_scores_list, bm25_scores)
+        # Alpha=1 yalnızca semantik, alpha=0 yalnızca BM25; aradaki değerler
+        # iki normalize skoru ağırlıklı olarak birleştirir.
+        alpha = max(0.0, min(1.0, alpha))
+        vec_norm = _normalize(vec_scores_list)
+        bm25_norm = _normalize(bm25_scores)
+        final_scores = [
+            (alpha * vector_score) + ((1.0 - alpha) * keyword_score)
+            for vector_score, keyword_score in zip(vec_norm, bm25_norm)
+        ]
     else:
         final_scores = vec_scores_list
 
@@ -134,3 +157,20 @@ def retrieve_top_chunks(
         for chunk, score in zip(chunks, final_scores)
     ]
     return sorted(ranked, key=lambda result: result.score, reverse=True)[:top_k]
+
+
+def has_confident_match(
+    query_text: str,
+    query_embedding: Sequence[float],
+    chunks: Sequence[StoredChunk],
+    semantic_threshold: float = 0.55,
+) -> bool:
+    """Normalize edilmiş RRF skorundan bağımsız olarak gerçek eşleşme arar."""
+    query_tokens = set(_tokenize(query_text)) - _STOPWORDS
+    if not chunks:
+        return False
+    for chunk in chunks:
+        passage_tokens = set(_tokenize(chunk.content)) - _STOPWORDS
+        if len(query_tokens & passage_tokens) >= 2:
+            return True
+    return max((cosine_similarity(query_embedding, chunk.embedding) for chunk in chunks), default=0.0) >= max(0.70, semantic_threshold)

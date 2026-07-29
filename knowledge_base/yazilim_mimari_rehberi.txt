@@ -1,0 +1,45 @@
+YAZILIM MİMARİSİ VE TASARIM PRENSİPLERİ
+
+Yazılım mimarisi, bir yazılım sisteminin temel yapısını, bileşenlerini ve bu bileşenlerin birbirleriyle olan ilişkilerini tanımlar.
+
+1. SOLID Prensipleri:
+- Single Responsibility (Tek Sorumluluk): Bir sınıfın değişmek için yalnızca tek bir nedeni olmalıdır.
+- Open/Closed (Açık/Kapalı): Yazılım varlıkları gelişime açık, değişime kapalı olmalıdır.
+- Liskov Substitution (Liskov Yerine Geçme): Alt sınıflar, üst sınıfların yerine kullanılabilmelidir.
+- Interface Segregation (Arayüz Ayırma): İstemciler kullanmadıkları arayüzlere bağımlı olmaya zorlanmamalıdır.
+- Dependency Inversion (Bağımlılığın Tersine Çevrilmesi): Yüksek seviyeli modüller düşük seviyeli modüllere bağımlı olmamalıdır.
+
+2. Mikroservis Mimarisi:
+Mikroservisler, bir uygulamayı bağımsız olarak dağıtılabilir ve ölçeklenebilir küçük servisler halinde bölme yaklaşımıdır. Monolitik mimarilere kıyasla esneklik ve hata izolasyonu sağlar.
+Yazılım Mimarisi ve Tasarım İlkeleri
+
+Yazılım mimarisi, sistemin modüllerini, sorumluluklarını, veri akışını ve dış
+bağımlılıklarını tanımlar. İyi mimari değişiklik maliyetini azaltır, test edilebilirliği
+artırır ve hataların sınırlandırılmasını sağlar. Katmanlı mimaride arayüz, servis,
+domain ve veri erişim sorumlulukları ayrılır. RAG uygulamasında document loader,
+chunker, repository, retrieval, prompting ve model runtime katmanları bu ayrımı
+oluşturur.
+
+SOLID ilkelerinden Single Responsibility bir sınıfın veya modülün tek bir değişme
+nedeni olmasıdır. Open/Closed mevcut kodu sürekli değiştirmeden genişlemeye açık,
+değişime kapalı olmayı hedefler. Liskov Substitution alt sınıfların üst sınıfın
+beklentilerini bozmadan kullanılabilmesini açıklar. Interface Segregation büyük
+ve zorunlu arayüzler yerine küçük, amaca yönelik arayüzleri savunur. Dependency
+Inversion yüksek seviyeli iş mantığının somut kütüphanelere değil soyutlamalara
+bağlanmasını önerir.
+
+Mikroservisler bağımsız dağıtılabilir ve farklı ölçekleme ihtiyacı olan bileşenleri
+ayırabilir; fakat ağ gecikmesi, gözlemlenebilirlik, veri tutarlılığı ve dağıtım
+karmaşıklığı getirir. Monolit küçük bir ekip ve MVP için daha basit olabilir.
+Bu yerel RAG projesi tek bilgisayarda çalıştığı için modüler monolit yaklaşımı
+uygundur: modüller ayrıdır ancak ayrı servis olarak dağıtılmaz.
+
+API tasarımında girdi doğrulama, hata sözleşmeleri, zaman aşımı ve tekrar deneme
+kuralları belirlenmelidir. Dosya yüklemede uzantı, boyut ve yol güvenliği kontrol
+edilir. Veritabanı yazımları transaction ile korunur. Loglar kullanıcı sorusunun
+hassas içeriğini gereksiz yere kaydetmemelidir.
+
+Test piramidinde hızlı birim testleri tabanda, entegrasyon testleri SQLite ve
+model sınırlarında, uçtan uca testler ise gerçek belge ve sorularla üstte yer alır.
+Deploy öncesi bağımlılık sürümleri sabitlenmeli, README güncel tutulmalı ve
+bilinen sınırlamalar açıkça belirtilmelidir.

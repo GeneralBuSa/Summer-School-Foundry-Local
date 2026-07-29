@@ -7,7 +7,7 @@ Microsoft Foundry Local ile çalışan, yerel RAG (Retrieval-Augmented Generatio
 - **Yerel Çalışma:** Model dosyaları ve gerekli çalışma bileşenleri indirildikten sonra cevap üretimi yerel yapılır. İlk model/katalog kontrolünde internet gerekebilir.
 - **Hibrit Arama:** BM25 + vektör araması + yerel deterministic re-ranking.
 - **Akıllı Parçalama:** Başlık ve paragraf yapısını koruyan semantic chunking.
-- **Çoklu Format:** `.md`, `.txt`, `.pdf`, `.docx` belge desteği. Taranmış PDF'ler için OCR fallback.
+- **Çoklu Format:** `.md`, `.txt`, `.pdf`, `.docx`, `.xlsx` ve `.csv` belge desteği. Taranmış PDF'ler için OCR fallback.
 - **Sohbet Hafızası:** Önceki soruları hatırlayan çok turlu diyalog.
 - **Web Arayüzü:** Streamlit tabanlı yerel web UI (belge yükleme, indeksleme, sohbet).
 - **Otomatik Senkronizasyon:** `app watch` veya UI üzerinden belge değişikliklerinde otomatik indeksleme.

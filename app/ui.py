@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+# pyrefly: ignore [missing-import]
 import streamlit as st
 from pathlib import Path
 
@@ -25,7 +26,7 @@ def main() -> None:
         st.header("⚙️ Belge Yönetimi")
         uploaded_files = st.file_uploader(
             "Yeni Belge Yükle (.md, .txt, .pdf, .docx)",
-            type=["md", "txt", "pdf", "docx"],
+            type=["md", "txt", "pdf", "docx", "xlsx", "csv"],
             accept_multiple_files=True,
         )
 
@@ -38,7 +39,7 @@ def main() -> None:
                 if not safe_name or Path(safe_name).suffix.lower() not in {".md", ".txt", ".pdf", ".docx"}:
                     st.error(f"Desteklenmeyen veya geçersiz dosya adı: {uploaded_file.name}")
                     continue
-                file_path = KNOWLEDGE_BASE_DIR / safe_name
+                    file_path = KNOWLEDGE_BASE_DIR / safe_name
                 file_path.write_bytes(uploaded_file.getbuffer())
             st.success(f"{len(uploaded_files)} belge knowledge_base klasörüne eklendi!")
 
@@ -78,6 +79,55 @@ def main() -> None:
                     except Exception as exc:
                         st.error(f"İndeksleme hatası: {exc}")
 
+        st.divider()
+        st.header("🎛️ Arama Ayarları")
+        top_k_param = st.slider("Top-K Parça Sayısı", min_value=1, max_value=10, value=3, step=1)
+        min_score_param = st.slider("Min Benzerlik Eşiği", min_value=0.0, max_value=1.0, value=0.35, step=0.05)
+        alpha_param = st.slider("Vektör Ağırlığı (Alpha)", min_value=0.0, max_value=1.0, value=0.7, step=0.05, help="1.0 = Sadece Vektör, 0.0 = Sadece BM25")
+
+        st.divider()
+        st.header("📄 Belge Önizleme")
+        if KNOWLEDGE_BASE_DIR.exists():
+            kb_files = sorted([f.name for f in KNOWLEDGE_BASE_DIR.rglob("*") if f.is_file() and not f.name.startswith(".")])
+            if kb_files:
+                selected_file = st.selectbox("İçeriğini İncele", kb_files)
+                if selected_file:
+                    file_path = next(
+                        (path for path in KNOWLEDGE_BASE_DIR.rglob("*") if path.is_file() and path.name == selected_file),
+                        None,
+                    )
+                    if file_path is None:
+                        st.error("Belge artık mevcut değil; listeyi yenileyin.")
+                        return
+                    if st.button("👁️ Belgeyi Gör"):
+                        try:
+                            from app.document_loader import _read_file_content
+                            content = _read_file_content(file_path)
+                            st.text_area(f"{selected_file} Metni", content, height=280)
+                        except Exception as exc:
+                            st.error(f"Belge okunamadı: {exc}")
+
+        # Sohbet Raporu Dışa Aktarma
+        if "messages" in st.session_state and st.session_state.messages:
+            st.divider()
+            st.header("📥 Rapor Dışa Aktar")
+            report_md = "# Yerel RAG Sohbet Raporu\n\n"
+            for m in st.session_state.messages:
+                role_title = "👤 Kullanıcı" if m["role"] == "user" else "🤖 Asistan"
+                report_md += f"### {role_title}\n{m['content']}\n\n"
+                if "sources" in m and m["sources"]:
+                    report_md += "**Kullanılan Kaynaklar:**\n"
+                    for s in m["sources"]:
+                        report_md += f"- {s['source']} (Parça {s['chunk']}, Skor: {s['score']:.2f})\n"
+                    report_md += "\n"
+
+            st.download_button(
+                label="📥 Sohbet Raporunu İndir (.md)",
+                data=report_md,
+                file_name="rag_sohbet_raporu.md",
+                mime="text/markdown",
+            )
+
     # Ana Alan: Sohbet Arayüzü
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -101,7 +151,15 @@ def main() -> None:
                 try:
                     with FoundryRuntime() as runtime:
                         history = st.session_state.messages[:-1]
-                        answer = answer_question(query, repository, runtime, chat_history=history)
+                        answer = answer_question(
+                            query,
+                            repository,
+                            runtime,
+                            chat_history=history,
+                            top_k=top_k_param,
+                            min_similarity_score=min_score_param,
+                            alpha=alpha_param,
+                        )
                         st.write(answer.text)
                         
                         sources_data = []

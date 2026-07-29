@@ -8,6 +8,7 @@ charset-normalizer==3.4.9
 click==8.4.2
 colorama==0.4.6
 distro==1.9.0
+et-xmlfile==2.0.0
 foundry-local-core-winml==1.2.3
 foundry-local-sdk-winml==1.2.3
 gitdb==4.0.12
@@ -27,9 +28,7 @@ MarkupSafe==3.0.3
 narwhals==2.24.0
 numpy==2.4.6
 pdf2image==1.17.0
-pytesseract==0.3.13
-pytesseract
-pdf2image
+openpyxl==3.1.5
 onnxruntime-core==1.26.0
 onnxruntime-genai-core==0.14.1
 openai==2.49.0

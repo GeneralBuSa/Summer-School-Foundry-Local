@@ -3,7 +3,7 @@
     "id": "Q01",
     "question": "Bu projenin amacı nedir?",
     "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["yerel", "soru-cevap", "asistan", "internet", "belgeler"]
+    "expected_keywords": ["yerel", "soru-cevap", "asistan", "internet"]
   },
   {
     "id": "Q02",
@@ -19,139 +19,139 @@
   },
   {
     "id": "Q04",
-    "question": "SQLite neden tercih edildi?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["sunucu", "gerektirmez", "yerel", "dosya"]
+    "question": "SOLID prensiplerindeki Single Responsibility ne anlama gelir?",
+    "expected_source": "knowledge_base/yazilim_mimari_rehberi.txt",
+    "expected_keywords": ["Single", "Responsibility", "değişmek", "neden"]
   },
   {
     "id": "Q05",
-    "question": "Asistan cevabı belgelerde bulamazsa ne yapmalı?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["bilgi", "bulunmuyor", "uydurmamalı"]
+    "question": "Mikroservis mimarisinin monolitik mimariye kıyasla avantajları nelerdir?",
+    "expected_source": "knowledge_base/yazilim_mimari_rehberi.txt",
+    "expected_keywords": ["dağıtılabilir", "ölçeklenebilir", "esneklik", "izolasyonu"]
   },
   {
     "id": "Q06",
-    "question": "Cosine similarity ne için kullanılıyor?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["cosine", "similarity", "vektör", "karşılaştır"]
+    "question": "Dependency Inversion prensibi nedir?",
+    "expected_source": "knowledge_base/yazilim_mimari_rehberi.txt",
+    "expected_keywords": ["Yüksek", "seviyeli", "modüller", "bağımlı"]
   },
   {
     "id": "Q07",
-    "question": "Foundry Local ne işe yarar?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["yerel", "model", "çalıştır"]
+    "question": "Scrum metodolojisinde Sprint süreleri ne kadardır?",
+    "expected_source": "knowledge_base/proje_yonetimi_esaslari.md",
+    "expected_keywords": ["Sprint", "haftalık", "döngüler"]
   },
   {
     "id": "Q08",
-    "question": "Belge parçaları nasıl bulunuyor?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["anlamca", "yakın", "parça", "soru"]
+    "question": "Kanban yöntemi neye odaklanır?",
+    "expected_source": "knowledge_base/proje_yonetimi_esaslari.md",
+    "expected_keywords": ["iş", "akışını", "görselleştirmeye", "WIP"]
   },
   {
     "id": "Q09",
-    "question": "Model yeni kaynak adı uydurabilir mi?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["uydurmamalı", "kaynak"]
+    "question": "Proje yönetiminde risk yönetimi neleri kapsar?",
+    "expected_source": "knowledge_base/proje_yonetimi_esaslari.md",
+    "expected_keywords": ["tehditlerin", "tespit", "mitigation", "azaltma"]
   },
   {
     "id": "Q10",
-    "question": "Kullanılan kaynaklar nasıl gösteriliyor?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["uygulama", "kaynak", "gösteril"]
+    "question": "İlişkisel veri tabanlarındaki ACID prensipleri neleri ifade eder?",
+    "expected_source": "knowledge_base/veri_tabani_ve_sql.md",
+    "expected_keywords": ["Atomicity", "Consistency", "Isolation", "Durability"]
   },
   {
     "id": "Q11",
-    "question": "Bağlam modele nasıl ekleniyor?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["parça", "bağlam", "ekle", "model"]
+    "question": "B-Tree indeksleme SQL sorgularına nasıl katkı sağlar?",
+    "expected_source": "knowledge_base/veri_tabani_ve_sql.md",
+    "expected_keywords": ["B-Tree", "sorgularının", "performansını", "hızlandırmak"]
   },
   {
     "id": "Q12",
-    "question": "Proje internet bağlantısı olmadan çalışabilir mi?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["internet", "bağlantısı", "olmadan"]
+    "question": "NoSQL veri tabanı türleri nelerdir?",
+    "expected_source": "knowledge_base/veri_tabani_ve_sql.md",
+    "expected_keywords": ["Anahtar-Değer", "Doküman", "Çizge", "Redis", "MongoDB"]
   },
   {
     "id": "Q13",
-    "question": "Belge koleksiyonlarında vektör karşılaştırması nasıl yapılıyor?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["cosine", "similarity", "Python"]
+    "question": "Denetimli Öğrenme (Supervised Learning) nedir?",
+    "expected_source": "knowledge_base/yapay_zeka_ve_ml.txt",
+    "expected_keywords": ["Etiketli", "verilerle", "Sınıflandırma", "Regresyon"]
   },
   {
     "id": "Q14",
-    "question": "RAG'ın ilk adımı nedir?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["retrieve", "belge", "parça", "bul"]
+    "question": "Derin öğrenmede hangi yapay sinir ağları kullanılır?",
+    "expected_source": "knowledge_base/yapay_zeka_ve_ml.txt",
+    "expected_keywords": ["ANN", "CNN", "RNN", "Transformer"]
   },
   {
     "id": "Q15",
-    "question": "Güvenli davranış kuralları nelerdir?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["bulunmuyor", "uydurma", "kaynak"]
+    "question": "Pekiştirmeli öğrenme nasıl çalışır?",
+    "expected_source": "knowledge_base/yapay_zeka_ve_ml.txt",
+    "expected_keywords": ["Ödül", "ceza", "mekanizması"]
   },
   {
     "id": "Q16",
-    "question": "Veri tek bir dosyada mı tutuluyor?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["tek", "yerel", "dosya", "SQLite"]
+    "question": "Liskov Substitution prensibi neyi açıklar?",
+    "expected_source": "knowledge_base/yazilim_mimari_rehberi.txt",
+    "expected_keywords": ["Alt", "sınıflar", "üst", "sınıfların"]
   },
   {
     "id": "Q17",
-    "question": "RAG'ın son aşamasında ne olur?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["generate", "cevap", "üret", "bağlam"]
+    "question": "Scrum toplantıları ve etkinlikleri nelerdir?",
+    "expected_source": "knowledge_base/proje_yonetimi_esaslari.md",
+    "expected_keywords": ["Standup", "Sprint", "Planning", "Retrospective"]
   },
   {
     "id": "Q18",
-    "question": "Kullanıcının belgelerine dayalı cevap vermek ne demek?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["belge", "cevap", "dayanan"]
+    "question": "Denetimsiz öğrenme örnekleri nelerdir?",
+    "expected_source": "knowledge_base/yapay_zeka_ve_ml.txt",
+    "expected_keywords": ["Etiketsiz", "Kümeleme", "K-Means"]
   },
   {
     "id": "Q19",
-    "question": "Küçük belge koleksiyonlarında hangi yöntem kullanılıyor?",
+    "question": "Asistan cevabı belgelerde bulamazsa ne demelidir?",
     "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["cosine", "similarity", "Python", "küçük"]
+    "expected_keywords": ["bilgi", "yerel", "bulunmuyor"]
   },
   {
     "id": "Q20",
-    "question": "Blockchain nedir ve nasıl çalışır?",
+    "question": "Blockchain teknolojisi akıllı sözleşmeleri nasıl çalıştırır?",
     "expected_source": null,
     "expected_keywords": [],
     "expect_no_answer": true
   },
   {
     "id": "Q21",
-    "question": "Python hangi framework ile web geliştirme yapılır?",
+    "question": "Vue.js ile component mimarisi nasıl kurulur?",
     "expected_source": null,
     "expected_keywords": [],
     "expect_no_answer": true
   },
   {
     "id": "Q22",
-    "question": "Yapay sinir ağlarının tarihçesi nedir?",
+    "question": "Kuantum bilgisayarlarda Qubit mantığı nasıl işler?",
     "expected_source": null,
     "expected_keywords": [],
     "expect_no_answer": true
   },
   {
     "id": "Q23",
-    "question": "Kuantum bilgisayarlar klasik bilgisayarlardan neden farklıdır?",
+    "question": "Kuzey ışıkları (Aurora Borealis) nasıl oluşur?",
     "expected_source": null,
     "expected_keywords": [],
     "expect_no_answer": true
   },
   {
     "id": "Q24",
-    "question": "Mars'a insanlı uçuş ne zaman planlanıyor?",
+    "question": "Fotosentez sürecinde klorofil ışığı nasıl emer?",
     "expected_source": null,
     "expected_keywords": [],
     "expect_no_answer": true
   },
   {
     "id": "Q25",
-    "question": "Retrieve aşamasında kullanıcı sorusuyla ne yapılır?",
-    "expected_source": "knowledge_base/ornek_yaz_okulu_bilgileri.md",
-    "expected_keywords": ["anlamca", "yakın", "parça", "bul"]
+    "question": "Open/Closed prensibi yazılım geliştirmede ne sağlar?",
+    "expected_source": "knowledge_base/yazilim_mimari_rehberi.txt",
+    "expected_keywords": ["gelişime", "açık", "değişime", "kapalı"]
   }
 ]

@@ -65,11 +65,37 @@ def _read_file_content(path: Path) -> str:
             return "\n".join(p.text for p in doc.paragraphs if p.text)
         except ImportError:
             raise ValueError(f"DOCX dosyasını okumak için 'python-docx' kütüphanesi kurulu olmalıdır: {path}")
+    elif suffix == ".csv":
+        import csv
+        lines: list[str] = []
+        with open(path, encoding="utf-8", errors="ignore") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if any(cell.strip() for cell in row):
+                    lines.append(" | ".join(row))
+        return "\n".join(lines)
+    elif suffix == ".xlsx":
+        try:
+            import openpyxl  # type: ignore
+            wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+            try:
+                sheets_text: list[str] = []
+                for sheet in wb.worksheets:
+                    sheets_text.append(f"Sayfa: {sheet.title}")
+                    for row in sheet.iter_rows(values_only=True):
+                        row_vals = [str(val).strip() for val in row if val is not None and str(val).strip()]
+                        if row_vals:
+                            sheets_text.append(" | ".join(row_vals))
+                return "\n".join(sheets_text)
+            finally:
+                wb.close()
+        except ImportError:
+            raise ValueError(f"XLSX dosyasını okumak için 'openpyxl' kütüphanesi kurulu olmalıdır: {path}")
     raise ValueError(f"Desteklenmeyen dosya biçimi: {path}")
 
 
 def discover_documents(knowledge_base_dir: Path) -> list[SourceDocument]:
-    """`.md`, `.txt`, `.pdf` ve `.docx` belgelerini alfabetik ve tekrar üretilebilir sırayla döndürür."""
+    """`.md`, `.txt`, `.pdf`, `.docx`, `.xlsx` ve `.csv` belgelerini alfabetik ve tekrar üretilebilir sırayla döndürür."""
     if not knowledge_base_dir.exists():
         return []
 
