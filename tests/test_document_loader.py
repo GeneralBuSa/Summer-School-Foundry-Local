@@ -50,7 +50,8 @@ class DocumentLoaderTests(unittest.TestCase):
             csv.writer(handle).writerows([["Ad", "Değer"], ["RAG", "yerel"]])
         text = _read_file_content(csv_file)
         self.assertIn("Ad | Değer", text)
-        self.assertIn("RAG | yerel", text)
+        self.assertIn("Ad: RAG", text)
+        self.assertIn("Değer: yerel", text)
 
     def test_xlsx_is_read_as_sheet_rows(self) -> None:
         try:

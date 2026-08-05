@@ -15,8 +15,52 @@ from app.chat import answer_question
 
 def main() -> None:
     st.set_page_config(page_title="Yerel RAG Asistanı", page_icon="🤖", layout="wide")
+
+    # Streamlit "Made with Streamlit" footer'ını ve koşan adam durum ikonunu (stStatusWidget) gizle
+    st.markdown(
+        """
+        <style>
+        footer {visibility: hidden;}
+
+        /* Sağ üst köşedeki koşan adam yükleme ikonunu gizle */
+        [data-testid="stStatusWidget"],
+        .stStatusWidget {
+            display: none !important;
+            visibility: hidden !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Streamlit "Clear cache" pop-up penceresindeki İngilizce metinleri Türkçe'ye çevir
+    st.markdown(
+        """
+        <img src="data:," onerror="
+            function translateModal() {
+                var dialogs = document.querySelectorAll('div[role=\\'dialog\\'], [data-testid=\\'stDialog\\']');
+                dialogs.forEach(function(dialog) {
+                    var html = dialog.innerHTML;
+                    if (html.includes('Clear cache') || html.includes('caches')) {
+                        dialog.querySelectorAll('h2, h3, div, p, span, button').forEach(function(el) {
+                            if (el.children.length === 0) {
+                                var txt = el.textContent.trim();
+                                if (txt === 'Clear cache' || txt === 'Clear cache?') el.textContent = 'Önbelleği Temizle';
+                                else if (txt.includes('Are you sure you want to clear')) el.textContent = 'Uygulama önbelleğini temizlemek istediğinizden emin misiniz?';
+                                else if (txt === 'Cancel') el.textContent = 'İptal';
+                            }
+                        });
+                    }
+                });
+            }
+            new MutationObserver(translateModal).observe(document.body, {childList: true, subtree: true});
+        " style="display:none">
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.title("🤖 Yerel RAG Belge Asistanı")
-    st.markdown("Dokümanlarınızı yerelde indeksleyin, güvenle ve kaynaklı Türkçe yanıtlar alın.")
+    st.markdown("Dokümanlarınızı yerelde indeksleyin, güvenle Türkçe yanıtlar alın.")
 
     repository = SQLiteRepository(DATABASE_PATH)
     repository.initialize()
@@ -35,12 +79,12 @@ def main() -> None:
             for uploaded_file in uploaded_files:
                 # Tarayıcıdan gelen dosya adını bilgi tabanı dışına taşmasına
                 # izin vermeden normalize et.
-                safe_name = Path(uploaded_file.name).name
-                if not safe_name or Path(safe_name).suffix.lower() not in {".md", ".txt", ".pdf", ".docx"}:
+                if not safe_name or Path(safe_name).suffix.lower() not in {".md", ".txt", ".pdf", ".docx", ".xlsx", ".csv"}:
                     st.error(f"Desteklenmeyen veya geçersiz dosya adı: {uploaded_file.name}")
                     continue
-                    file_path = KNOWLEDGE_BASE_DIR / safe_name
+                file_path = KNOWLEDGE_BASE_DIR / safe_name
                 file_path.write_bytes(uploaded_file.getbuffer())
+            st.session_state.new_files_uploaded = True
             st.success(f"{len(uploaded_files)} belge knowledge_base klasörüne eklendi!")
 
         # Model/İndeks Uyumluluk Kontrolü
@@ -62,22 +106,22 @@ def main() -> None:
                             st.rerun()
                     except Exception as exc:
                         st.error(f"Yeniden indeksleme hatası: {exc}")
-        else:
-            # Otomatik Senkronizasyon (Auto-ingest) — model uyumluyken çalışır
-            auto_sync = st.checkbox("⚡ Otomatik Senkronizasyon", value=True)
-            if auto_sync or st.button("🔄 Bilgi Tabanını Yeniden İndeksle", type="primary"):
-                with st.spinner("İndeks kontrol ediliyor..."):
-                    try:
-                        with FoundryRuntime() as runtime:
-                            summary = run_ingest(repository, runtime)
-                            if summary.indexed_documents > 0:
-                                st.success(
-                                    f"Otomatik İndekslendi: {summary.indexed_documents} yeni/güncellenen belge ({summary.chunk_count} parça) işlendi."
-                                )
-                            else:
-                                st.caption("🟢 Bilgi tabanı tamamen güncel.")
-                    except Exception as exc:
-                        st.error(f"İndeksleme hatası: {exc}")
+        # İndeksleme Tetikleme
+        sync_needed = "new_files_uploaded" in st.session_state and st.session_state.new_files_uploaded
+        if sync_needed or st.button("🔄 Bilgi Tabanını İndeksle / Güncelle", type="primary"):
+            with st.spinner("İndeks kontrol ediliyor..."):
+                try:
+                    with FoundryRuntime() as runtime:
+                        summary = run_ingest(repository, runtime)
+                        if summary.indexed_documents > 0:
+                            st.success(
+                                f"İndekslendi: {summary.indexed_documents} yeni/güncellenen belge ({summary.chunk_count} parça) işlendi."
+                            )
+                        else:
+                            st.info("🟢 Bilgi tabanı tamamen güncel, yeni belge yok.")
+                        st.session_state.new_files_uploaded = False
+                except Exception as exc:
+                    st.error(f"İndeksleme hatası: {exc}")
 
         st.divider()
         st.header("🎛️ Arama Ayarları")
@@ -87,25 +131,36 @@ def main() -> None:
 
         st.divider()
         st.header("📄 Belge Önizleme")
+        is_generating = st.session_state.get("is_generating", False)
+        btn_help = (
+            "⚠️ Yanıt üretimi devam ederken belge önizlemesi kullanılamaz."
+            if is_generating
+            else "Seçilen belgenin metnini görüntüle."
+        )
+
         if KNOWLEDGE_BASE_DIR.exists():
-            kb_files = sorted([f.name for f in KNOWLEDGE_BASE_DIR.rglob("*") if f.is_file() and not f.name.startswith(".")])
+            kb_files = sorted([f.relative_to(KNOWLEDGE_BASE_DIR).as_posix() for f in KNOWLEDGE_BASE_DIR.rglob("*") if f.is_file() and not f.name.startswith(".")])
             if kb_files:
-                selected_file = st.selectbox("İçeriğini İncele", kb_files)
-                if selected_file:
-                    file_path = next(
-                        (path for path in KNOWLEDGE_BASE_DIR.rglob("*") if path.is_file() and path.name == selected_file),
-                        None,
-                    )
-                    if file_path is None:
+                selected_rel_path = st.selectbox("İçeriğini İncele", kb_files)
+                if selected_rel_path:
+                    file_path = KNOWLEDGE_BASE_DIR / selected_rel_path
+                    if not file_path.exists():
                         st.error("Belge artık mevcut değil; listeyi yenileyin.")
-                        return
-                    if st.button("👁️ Belgeyi Gör"):
-                        try:
-                            from app.document_loader import _read_file_content
-                            content = _read_file_content(file_path)
-                            st.text_area(f"{selected_file} Metni", content, height=280)
-                        except Exception as exc:
-                            st.error(f"Belge okunamadı: {exc}")
+                    else:
+                        if st.button("👁️ Belgeyi Gör", disabled=is_generating, help=btn_help):
+                            try:
+                                from app.document_loader import _read_file_content
+                                st.session_state.preview_content = _read_file_content(file_path)
+                                st.session_state.preview_file = selected_rel_path
+                            except Exception as exc:
+                                st.error(f"Belge okunamadı: {exc}")
+
+                if st.session_state.get("preview_content"):
+                    st.text_area(f"{st.session_state.get('preview_file')} Metni", st.session_state.preview_content, height=280)
+                    if st.button("❌ Önizlemeyi Kapat"):
+                        st.session_state.preview_content = None
+                        st.session_state.preview_file = None
+                        st.rerun()
 
         # Sohbet Raporu Dışa Aktarma
         if "messages" in st.session_state and st.session_state.messages:
@@ -127,6 +182,18 @@ def main() -> None:
                 file_name="rag_sohbet_raporu.md",
                 mime="text/markdown",
             )
+            if st.button("🗑️ Sohbet Geçmişini Temizle"):
+                st.session_state.messages = []
+                st.rerun()
+
+            if st.button("🛑 Yanıt Üretimini Durdur", type="secondary"):
+                if st.session_state.get("messages") and st.session_state.messages[-1]["role"] == "user":
+                    st.session_state.messages.pop()
+                st.session_state.is_generating = False
+                st.warning("Yanıt üretimi durduruldu.")
+
+        # Açılır menülerin ekran altında kesilmesini önlemek için alt boşluk
+        st.markdown("<div style='height: 250px;'></div>", unsafe_allow_html=True)
 
     # Ana Alan: Sohbet Arayüzü
     if "messages" not in st.session_state:
@@ -142,6 +209,7 @@ def main() -> None:
 
     query = st.chat_input("Belgeleriniz hakkında soru sorun...")
     if query:
+        st.session_state.is_generating = True
         st.session_state.messages.append({"role": "user", "content": query})
         with st.chat_message("user"):
             st.write(query)
@@ -149,39 +217,51 @@ def main() -> None:
         with st.chat_message("assistant"):
             with st.spinner("Yanıt üretiliyor..."):
                 try:
-                    with FoundryRuntime() as runtime:
-                        history = st.session_state.messages[:-1]
-                        answer = answer_question(
-                            query,
-                            repository,
-                            runtime,
-                            chat_history=history,
-                            top_k=top_k_param,
-                            min_similarity_score=min_score_param,
-                            alpha=alpha_param,
-                        )
-                        st.write(answer.text)
-                        
-                        sources_data = []
-                        if answer.sources:
-                            with st.expander("📚 Kullanılan Kaynaklar"):
-                                for res in answer.sources:
-                                    src_info = {
-                                        "source": res.chunk.source_path,
-                                        "chunk": res.chunk.chunk_index + 1,
-                                        "score": res.score,
-                                    }
-                                    sources_data.append(src_info)
-                                    st.markdown(
-                                        f"- **{res.chunk.source_path}** (Parça {res.chunk.chunk_index + 1}, "
-                                        f"Benzerlik: `{res.score:.2f}`)"
-                                    )
-                        st.session_state.messages.append(
-                            {"role": "assistant", "content": answer.text, "sources": sources_data}
-                        )
+                    runtime = _get_runtime()
+                    history = st.session_state.messages[:-1]
+                    answer = answer_question(
+                        query,
+                        repository,
+                        runtime,
+                        chat_history=history,
+                        top_k=top_k_param,
+                        min_similarity_score=min_score_param,
+                        alpha=alpha_param,
+                    )
+                    st.write(answer.text)
+
+                    sources_data = []
+                    if answer.sources:
+                        with st.expander("📚 Kullanılan Kaynaklar"):
+                            for res in answer.sources:
+                                src_info = {
+                                    "source": res.chunk.source_path,
+                                    "chunk": res.chunk.chunk_index + 1,
+                                    "score": res.score,
+                                }
+                                sources_data.append(src_info)
+                                st.markdown(
+                                    f"- **{res.chunk.source_path}** (Parça {res.chunk.chunk_index + 1}, "
+                                    f"Benzerlik: `{res.score:.2f}`)"
+                                )
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": answer.text, "sources": sources_data}
+                    )
                 except Exception as exc:
                     st.error(f"Yanıt üretme hatası: {exc}")
+                finally:
+                    st.session_state.is_generating = False
+
+
+# Modelleri bellekte kalıcı tut; her soruda yeniden yüklenmesini engelle
+@st.cache_resource
+def _get_runtime() -> FoundryRuntime:
+    """FoundryRuntime'ı bir kez oluştur ve bellekte tut."""
+    rt = FoundryRuntime()
+    rt.start()
+    return rt
 
 
 if __name__ == "__main__":
     main()
+

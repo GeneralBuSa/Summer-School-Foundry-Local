@@ -70,9 +70,21 @@ def _read_file_content(path: Path) -> str:
         lines: list[str] = []
         with open(path, encoding="utf-8", errors="ignore") as f:
             reader = csv.reader(f)
+            header: list[str] | None = None
             for row in reader:
-                if any(cell.strip() for cell in row):
-                    lines.append(" | ".join(row))
+                cleaned_row = [cell.strip() for cell in row]
+                if not any(cleaned_row):
+                    continue
+                if header is None:
+                    header = cleaned_row
+                    lines.append(" | ".join(header))
+                else:
+                    row_pairs = [
+                        f"{h}: {val}" if h else val
+                        for h, val in zip(header, cleaned_row)
+                        if val
+                    ]
+                    lines.append(" | ".join(row_pairs) if row_pairs else " | ".join(cleaned_row))
         return "\n".join(lines)
     elif suffix == ".xlsx":
         try:

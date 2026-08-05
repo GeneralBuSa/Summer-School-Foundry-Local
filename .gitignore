@@ -1,11 +1,15 @@
 # Python virtual environments and bytecode
-.venv/
+.venv*/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.codebase-memory/
 
 # Local RAG runtime data
 data/*.db
 data/*.db-*
+knowledge_base/**/*.pdf
+knowledge_base/**/*.docx
 knowledge_base/*.pdf
 knowledge_base/*.docx
 

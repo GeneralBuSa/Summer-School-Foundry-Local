@@ -22,8 +22,11 @@ def _tokenize(text: str) -> list[str]:
 
 
 _STOPWORDS = {
-    "ve", "veya", "ile", "bir", "bu", "şu", "ne", "nedir", "nasıl", "hangi",
-    "için", "olan", "olarak", "mi", "mı", "mu", "mü", "de", "da", "çok",
+    "ve", "veya", "ile", "bir", "bu", "şu", "o", "ne", "nedir", "nasıl", "hangi", "kaç",
+    "için", "olan", "olarak", "mi", "mı", "mu", "mü", "de", "da", "den", "dan", "çok",
+    "daha", "en", "var", "yok", "hakkında", "ilgili", "kavramı", "kavram", "bilgi",
+    "bilgisi", "ver", "veri", "göre", "tarafından", "proje", "projenin", "yönetim",
+    "yönetimi", "yönetiminde", "project", "gutenberg", "license", "management", "professional",
 }
 
 
@@ -163,14 +166,15 @@ def has_confident_match(
     query_text: str,
     query_embedding: Sequence[float],
     chunks: Sequence[StoredChunk],
-    semantic_threshold: float = 0.55,
+    semantic_threshold: float = 0.5,
 ) -> bool:
     """Normalize edilmiş RRF skorundan bağımsız olarak gerçek eşleşme arar."""
     query_tokens = set(_tokenize(query_text)) - _STOPWORDS
-    if not chunks:
+    if not chunks or not query_tokens:
         return False
+    min_required_tokens = min(2, len(query_tokens))
     for chunk in chunks:
         passage_tokens = set(_tokenize(chunk.content)) - _STOPWORDS
-        if len(query_tokens & passage_tokens) >= 2:
+        if len(query_tokens & passage_tokens) >= min_required_tokens:
             return True
-    return max((cosine_similarity(query_embedding, chunk.embedding) for chunk in chunks), default=0.0) >= max(0.70, semantic_threshold)
+    return max((cosine_similarity(query_embedding, chunk.embedding) for chunk in chunks), default=0.0) >= semantic_threshold

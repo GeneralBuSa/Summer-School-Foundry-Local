@@ -10,6 +10,10 @@ from app.document_loader import discover_documents
 from app.foundry import FoundryRuntime
 from app.repository import SQLiteRepository
 
+# CPU embedding modeli büyük toplu isteklerde zaman aşımına uğrayabiliyor;
+# chunk'ları küçük gruplar halinde gönderiyoruz.
+EMBEDDING_BATCH_SIZE = 32
+
 
 @dataclass(frozen=True)
 class IngestSummary:
@@ -26,6 +30,22 @@ def check_model_compatibility(repository: SQLiteRepository) -> str | None:
         stale = ", ".join(sorted(indexed_models))
         return stale
     return None
+
+
+def _safe_generate_embeddings(embedding_client: Any, batch: list[str]) -> list[list[float]]:
+    """Zaman aşımı veya SDK hatası durumunda batch'i otomatik küçük parçalara bölerek güvenle işler."""
+    try:
+        response = embedding_client.generate_embeddings(batch)
+        return [item.embedding for item in response.data]
+    except Exception:
+        if len(batch) <= 4:
+            res_embeddings: list[list[float]] = []
+            for text in batch:
+                single_res = embedding_client.generate_embeddings([text])
+                res_embeddings.extend(item.embedding for item in single_res.data)
+            return res_embeddings
+        mid = len(batch) // 2
+        return _safe_generate_embeddings(embedding_client, batch[:mid]) + _safe_generate_embeddings(embedding_client, batch[mid:])
 
 
 def run_ingest(
@@ -64,10 +84,25 @@ def run_ingest(
             skipped_documents += 1
             continue
 
+        print(f"\nİşleniyor: {document.source_path} (Toplam {len(chunks)} parça)", flush=True)
+
         if embedding_client is None:
             embedding_client = runtime.embedding_client()
-        response = embedding_client.generate_embeddings(chunks)
-        embeddings = [item.embedding for item in response.data]
+
+        # Büyük belgelerde timeout'u önlemek için batch'ler halinde gönder
+        embeddings: list[list[float]] = []
+        for batch_start in range(0, len(chunks), EMBEDDING_BATCH_SIZE):
+            batch = chunks[batch_start:batch_start + EMBEDDING_BATCH_SIZE]
+            embeddings.extend(_safe_generate_embeddings(embedding_client, batch))
+            done = len(embeddings)
+            pct = int((done / len(chunks)) * 100)
+            status_line = f"{document.source_path} | {done}/{len(chunks)} parça tamamlandı (%{pct})"
+            print(f"  -> {status_line}", flush=True)
+            try:
+                with open("data/progress.txt", "w", encoding="utf-8") as pf:
+                    pf.write(f"{status_line}\n")
+            except Exception:
+                pass
         if len(embeddings) != len(chunks):
             raise RuntimeError(
                 f"Embedding yanıtı eksik: {document.source_path} için {len(chunks)} parça, "

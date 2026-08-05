@@ -25,13 +25,17 @@ class FoundryRuntime:
         if self._manager is not None:
             return
         try:
-            FoundryLocalManager.initialize(Configuration(app_name=APP_NAME))
+            if getattr(FoundryLocalManager, "instance", None) is None:
+                FoundryLocalManager.initialize(Configuration(app_name=APP_NAME))
             self._manager = FoundryLocalManager.instance
-            # SDK, indirilmiş sağlayıcılar için bu çağrıyı güvenle atlar.
-            self._manager.download_and_register_eps()
+            # SDK, indirilmiş sağlayıcılar için bu çağrıyı çevrimdışı modda güvenle atlar.
+            try:
+                self._manager.download_and_register_eps()
+            except Exception:
+                pass
         except Exception as exc:  # SDK farklı platform hatası türleri döndürebilir.
             raise FoundryRuntimeError(
-                "Foundry Local başlatılamadı. İnternet bağlantısını ve SDK kurulumunu kontrol edin."
+                "Foundry Local başlatılamadı. SDK kurulumunu kontrol edin."
             ) from exc
 
     def _get_and_load_model(self, alias: str) -> Any:
@@ -47,25 +51,33 @@ class FoundryRuntime:
                     raise FoundryRuntimeError(
                         f"Model katalogda bulunamadı: {alias}. Kullanılabilir model alias'larını kontrol edin."
                     )
-                # Bu bilgisayarda güvenilir biçimde kullanılabilir sağlayıcı CPU'dur.
-                # SDK bazen kullanılabilir olmayan GPU varyantını öncelikli seçebildiği
-                # için, katalog CPU varyantı sunuyorsa onu açıkça seçiyoruz.
-                cpu_variant = next(
+                # İndirilmemiş GPU varyantı için internetten 2.18 GB dosya indirilip gecikme yaşanmaması için
+                # öncelikle bilgisayarda önceden indirilmiş ve hazır olan (cached=True) yerel varyant seçilir.
+                cached_gpu = next(
                     (
                         variant
                         for variant in model.variants
-                        if variant.info.runtime is not None
-                        and str(variant.info.runtime.device_type).upper() == "CPU"
+                        if variant.info.cached
+                        and variant.info.runtime is not None
+                        and str(variant.info.runtime.device_type).upper() in {"GPU", "CUDA", "DIRECTML", "DML"}
                     ),
                     None,
                 )
-                if cpu_variant is not None:
-                    model.select_variant(cpu_variant)
-                # Her başlangıçta çağrılır; internet yoksa veya önbellek mevcutsa çevrimdışı yükler.
-                try:
-                    model.download()
-                except Exception:
-                    pass  # Çevrimdışı durumda önbellekteki model doğrudan yüklenir.
+                cached_any = next(
+                    (variant for variant in model.variants if variant.info.cached),
+                    None,
+                )
+
+                selected_variant = cached_gpu or cached_any
+                if selected_variant is not None:
+                    model.select_variant(selected_variant)
+
+                # Yalnızca önbellekte yoksa indirmeyi dene; hazır model için internet bekleme
+                if selected_variant is not None and not getattr(selected_variant.info, "cached", False):
+                    try:
+                        model.download()
+                    except Exception:
+                        pass
                 model.load()
                 return model
             except FoundryRuntimeError:

@@ -5,13 +5,13 @@ from __future__ import annotations
 from app.domain import RetrievalResult
 
 
-SYSTEM_PROMPT = """Sen yerel belge asistanısın. Yalnızca aşağıdaki BAĞLAM içinde bulunan
-bilgiye dayanarak akıcı ve doğal bir Türkçe ile cevap ver.
+SYSTEM_PROMPT = """Sen yerel belge asistanısın. Görevin bağlamdaki bilgiyi kullanarak Türkçe soruya 1-2 cümlelik kısa ve doğrudan bir yanıt vermektir.
 
-Kurallar:
-1. Yanıtında bağlamdaki bilgileri kullan ve kullandığın bilginin kaynağını metin içinde [Kaynak: dosya_adı, Parça: X] şeklinde açıkça belirt.
-2. Bağlam soruyu cevaplamak için yeterli değilse tam olarak “Bu bilgi yerel bilgi tabanında bulunmuyor.” de.
-3. Bağlamda olmayan ayrıntıları tahmin etme veya uydurma.
+TALİMATLAR:
+- Yalnızca bağlamda verilen bilgiyi kullan.
+- Sorulan kavram belgede açıklanmıyorsa doğrudan "Bu bilgi yerel bilgi tabanında bulunmuyor." de.
+- Yanıtına kaynak ekle: [Kaynak: dosya_adı, Parça: X]
+- Liste, numara, madde işareti, "0:" öneki veya özet başlıkları kesinlikle ekleme. Doğrudan tek paragraf halinde kısa yanıt ver.
 
 BAĞLAM:
 {context}"""
@@ -24,8 +24,8 @@ def build_messages(
 ) -> list[dict[str, str]]:
     context = "\n\n".join(
         (
-            f"[Kaynak: {result.chunk.source_path} | Parça: {result.chunk.chunk_index + 1} "
-            f"| Skor: {result.score:.2f}]\n{result.chunk.content}"
+            f"[Kaynak: {result.chunk.source_path} | Parça: {result.chunk.chunk_index + 1}]\n"
+            f"{result.chunk.content}"
         )
         for result in results
     )

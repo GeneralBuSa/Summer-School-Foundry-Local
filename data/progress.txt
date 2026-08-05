@@ -1,0 +1,1 @@
+knowledge_base/harici_kaynaklar/owid_life_expectancy.csv | 2245/2245 parça tamamlandı (%100)
