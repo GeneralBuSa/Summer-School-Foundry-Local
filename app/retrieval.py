@@ -16,9 +16,35 @@ except ImportError:
     _HAS_NUMPY = False
 
 
+_COUNTRY_MAP = {
+    "türkiye": "turkey",
+    "türkiyenin": "turkey",
+    "türkiyede": "turkey",
+    "türkiyedeki": "turkey",
+    "turkiye": "turkey",
+    "turkiyenin": "turkey",
+    "almanya": "germany",
+    "almanyanın": "germany",
+    "fransa": "france",
+    "fransanın": "france",
+    "ingiltere": "united kingdom",
+    "ingilterenin": "united kingdom",
+    "yunanistan": "greece",
+    "rusya": "russia",
+    "japonya": "japan",
+    "çin": "china",
+    "abd": "united states",
+}
+
+
 def _tokenize(text: str) -> list[str]:
-    """Metni Türkçe duyarlı küçük harfli kelime token'larına ayırır."""
-    return re.findall(r"\w+", text.lower())
+    """Metni Türkçe duyarlı küçük harfli kelime token'larına ayırır ve İngilizce terimleri eşler."""
+    raw_tokens = re.findall(r"\w+", text.lower())
+    tokens = list(raw_tokens)
+    for t in raw_tokens:
+        if t in _COUNTRY_MAP:
+            tokens.append(_COUNTRY_MAP[t])
+    return tokens
 
 
 _STOPWORDS = {
@@ -143,8 +169,9 @@ def retrieve_top_chunks(
 
     if query_text and query_text.strip():
         bm25_scores = compute_bm25_scores(query_text, chunks)
-        # Alpha=1 yalnızca semantik, alpha=0 yalnızca BM25; aradaki değerler
-        # iki normalize skoru ağırlıklı olarak birleştirir.
+        # Soruda yıl veya özel sayı varsa BM25 kelime eşleşmesine öncelik ver
+        if re.search(r"\b(19\d\d|20\d\d|\d{2,4})\b", query_text):
+            alpha = min(alpha, 0.4)
         alpha = max(0.0, min(1.0, alpha))
         vec_norm = _normalize(vec_scores_list)
         bm25_norm = _normalize(bm25_scores)
@@ -166,7 +193,7 @@ def has_confident_match(
     query_text: str,
     query_embedding: Sequence[float],
     chunks: Sequence[StoredChunk],
-    semantic_threshold: float = 0.5,
+    semantic_threshold: float = 0.45,
 ) -> bool:
     """Normalize edilmiş RRF skorundan bağımsız olarak gerçek eşleşme arar."""
     query_tokens = set(_tokenize(query_text)) - _STOPWORDS

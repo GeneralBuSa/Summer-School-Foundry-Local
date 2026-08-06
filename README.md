@@ -72,13 +72,20 @@ python -m app chat
 
 Çıkmak için `quit` veya `exit` yazın. Sohbet hafızası son 6 mesajı modele iletir.
 
-### Web Arayüzü (Streamlit)
+### Web Arayüzü (Next.js 14 + FastAPI)
 
+1. Backend API (FastAPI):
 ```powershell
 python -m app ui
 ```
 
-Web arayüzünden belge yükleyebilir, indeksi yenileyebilir ve kaynaklı sohbet edebilirsiniz.
+2. Frontend (Next.js 14):
+```powershell
+cd frontend
+npm run dev
+```
+
+http://localhost:3000 adresinden web arayüzüne erişebilir; belge yükleme, indeksleme, anlık durdurma (AbortController) ve sohbet işlevlerini kullanabilirsiniz.
 
 ### Retrieval Kalite Değerlendirmesi
 

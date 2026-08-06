@@ -41,10 +41,9 @@ def _chat_loop(repository: SQLiteRepository, runtime: FoundryRuntime) -> None:
 def main() -> int:
     args = _parser().parse_args()
     if args.command == "ui":
-        import subprocess
-        import sys
-        print("Streamlit Web Arayüzü başlatılıyor...")
-        subprocess.run([sys.executable, "-m", "streamlit", "run", "app/ui.py"])
+        import uvicorn
+        print("FastAPI RAG Sunucusu (http://localhost:8000) başlatılıyor...")
+        uvicorn.run("app.server:app", host="0.0.0.0", port=8000, reload=True)
         return 0
 
     if args.command == "watch":

@@ -7,8 +7,11 @@ import re
 from app.domain import RetrievalResult
 
 
+from app.retrieval import _tokenize
+
+
 def _tokens(text: str) -> set[str]:
-    return set(re.findall(r"\w+", text.casefold()))
+    return set(_tokenize(text))
 
 
 def cross_encoder_score(query: str, passage: str, base_score: float) -> float:

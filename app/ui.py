@@ -16,21 +16,153 @@ from app.chat import answer_question
 def main() -> None:
     st.set_page_config(page_title="Yerel RAG Asistanı", page_icon="🤖", layout="wide")
 
-    # Streamlit "Made with Streamlit" footer'ını ve koşan adam durum ikonunu (stStatusWidget) gizle
+    # Streamlit "Made with Streamlit" footer'ını gizle ve sohbet giriş barına stil uygula
     st.markdown(
         """
         <style>
         footer {visibility: hidden;}
 
-        /* Sağ üst köşedeki koşan adam yükleme ikonunu gizle */
+        /* Durdurma widget'ını görünmez yap */
         [data-testid="stStatusWidget"],
         .stStatusWidget {
-            display: none !important;
+            opacity: 0 !important;
             visibility: hidden !important;
+        }
+
+        /* Sohbet input alanına görece konumlandırma */
+        [data-testid="stChatInput"] {
+            position: relative !important;
+        }
+
+        /* Sohbeti Temizle (Trash) butonunu sağ üst header barına (Deploy butonunun soluna) taşı ve dikeyde ortala */
+        .st-key-clear_chat_btn {
+            position: fixed !important;
+            top: 15px !important;
+            right: 120px !important;
+            z-index: 999999 !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+        .st-key-clear_chat_btn button {
+            border-radius: 8px !important;
+            padding: 0 !important;
+            width: 32px !important;
+            height: 32px !important;
+            min-height: 32px !important;
+            background-color: transparent !important;
+            color: #f8fafc !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            font-size: 15px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: 1 !important;
+            transition: all 0.2s ease !important;
+        }
+        .st-key-clear_chat_btn button:hover {
+            background-color: rgba(239, 68, 68, 0.2) !important;
+            border-color: #ef4444 !important;
+            color: #ef4444 !important;
+        }
+
+        /* Anlık yanıt iptal butonunu gizli tut */
+        .st-key-cancel_current_response_btn {
+            display: none !important;
         }
         </style>
         """,
         unsafe_allow_html=True,
+    )
+
+    # Sağ üst header barına (Deploy yanına) sohbet temizleme butonu ekle
+    if st.button("🗑️", key="clear_chat_btn", help="Sohbet geçmişini temizle"):
+        st.session_state.messages = []
+        st.rerun()
+
+    # Sadece anlık sorunun yanıtını iptal eden gizli buton
+    if st.button("durdur", key="cancel_current_response_btn"):
+        if st.session_state.get("messages") and st.session_state.messages[-1]["role"] == "user":
+            st.session_state.messages.pop()
+        st.session_state.is_generating = False
+        st.rerun()
+
+    # Yanıt üretilirken giriş barının sağına canlı stop (⏹) butonunu ekle
+    import streamlit.components.v1 as components
+    components.html(
+        """
+        <script>
+        (function() {
+            var pdoc = window.parent.document;
+
+            function handleStopBtn() {
+                var chatInput = pdoc.querySelector('[data-testid=stChatInput]') || pdoc.querySelector('.stChatInput');
+                if (!chatInput) return;
+
+                var nativeSubmit = chatInput.querySelector('button');
+                var isGenerating = pdoc.body.innerText.includes('Yanıt üretiliyor...') || 
+                                   pdoc.querySelector('[data-testid=stSpinner]') !== null ||
+                                   pdoc.querySelector('.stSpinner') !== null;
+
+                var existingBtn = pdoc.getElementById('custom-chat-stop-btn');
+
+                if (isGenerating) {
+                    if (nativeSubmit) {
+                        nativeSubmit.style.visibility = 'hidden';
+                    }
+
+                    var rect = nativeSubmit ? nativeSubmit.getBoundingClientRect() : chatInput.getBoundingClientRect();
+                    var rightPos = (pdoc.documentElement.clientWidth - rect.right);
+                    var topPos = rect.top;
+                    var w = (rect && rect.width > 0) ? rect.width : 34;
+                    var h = (rect && rect.height > 0) ? rect.height : 34;
+                    var r = nativeSubmit ? window.getComputedStyle(nativeSubmit).borderRadius : '8px';
+
+                    if (!existingBtn) {
+                        var btn = pdoc.createElement('button');
+                        btn.id = 'custom-chat-stop-btn';
+                        btn.innerHTML = '⏹';
+                        btn.title = 'Yanıt üretimini durdur';
+                        btn.style.cssText = 'position:fixed; right:' + rightPos + 'px; top:' + topPos + 'px; z-index:9999999; width:' + w + 'px; height:' + h + 'px; border-radius:' + r + '; background-color:#ef4444; color:white; border:none; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 4px rgba(0,0,0,0.3); pointer-events:auto;';
+
+                        btn.onmouseover = function() { this.style.backgroundColor = '#dc2626'; };
+                        btn.onmouseout = function() { this.style.backgroundColor = '#ef4444'; };
+
+                        function triggerStop(e) {
+                            if (e) { e.preventDefault(); e.stopPropagation(); }
+                            var nativeStop = pdoc.querySelector('button[aria-label="Stop"]') ||
+                                             pdoc.querySelector('button[title="Stop"]') ||
+                                             pdoc.querySelector('[data-testid=stStatusWidget] button') ||
+                                             pdoc.querySelector('.stStatusWidget button');
+                            if (nativeStop) {
+                                nativeStop.click();
+                            }
+                        }
+
+                        btn.onmousedown = triggerStop;
+                        btn.onclick = triggerStop;
+
+                        pdoc.body.appendChild(btn);
+                    } else {
+                        existingBtn.style.right = rightPos + 'px';
+                        existingBtn.style.top = topPos + 'px';
+                    }
+                } else {
+                    if (nativeSubmit) {
+                        nativeSubmit.style.visibility = 'visible';
+                    }
+                    if (existingBtn) {
+                        existingBtn.remove();
+                    }
+                }
+            }
+
+            setInterval(handleStopBtn, 150);
+            handleStopBtn();
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
     )
 
     # Streamlit "Clear cache" pop-up penceresindeki İngilizce metinleri Türkçe'ye çevir
@@ -67,7 +199,7 @@ def main() -> None:
 
     # Yan panel: İndeksleme ve Belge Yükleme
     with st.sidebar:
-        st.header("⚙️ Belge Yönetimi")
+        st.header("Belge Yönetimi")
         uploaded_files = st.file_uploader(
             "Yeni Belge Yükle (.md, .txt, .pdf, .docx)",
             type=["md", "txt", "pdf", "docx", "xlsx", "csv"],
@@ -108,7 +240,7 @@ def main() -> None:
                         st.error(f"Yeniden indeksleme hatası: {exc}")
         # İndeksleme Tetikleme
         sync_needed = "new_files_uploaded" in st.session_state and st.session_state.new_files_uploaded
-        if sync_needed or st.button("🔄 Bilgi Tabanını İndeksle / Güncelle", type="primary"):
+        if sync_needed or st.button("Bilgi Tabanını İndeksle / Güncelle", type="primary"):
             with st.spinner("İndeks kontrol ediliyor..."):
                 try:
                     with FoundryRuntime() as runtime:
@@ -124,13 +256,13 @@ def main() -> None:
                     st.error(f"İndeksleme hatası: {exc}")
 
         st.divider()
-        st.header("🎛️ Arama Ayarları")
+        st.header("Arama Ayarları")
         top_k_param = st.slider("Top-K Parça Sayısı", min_value=1, max_value=10, value=3, step=1)
         min_score_param = st.slider("Min Benzerlik Eşiği", min_value=0.0, max_value=1.0, value=0.35, step=0.05)
         alpha_param = st.slider("Vektör Ağırlığı (Alpha)", min_value=0.0, max_value=1.0, value=0.7, step=0.05, help="1.0 = Sadece Vektör, 0.0 = Sadece BM25")
 
         st.divider()
-        st.header("📄 Belge Önizleme")
+        st.header("Belge Önizleme")
         is_generating = st.session_state.get("is_generating", False)
         btn_help = (
             "⚠️ Yanıt üretimi devam ederken belge önizlemesi kullanılamaz."
@@ -147,7 +279,7 @@ def main() -> None:
                     if not file_path.exists():
                         st.error("Belge artık mevcut değil; listeyi yenileyin.")
                     else:
-                        if st.button("👁️ Belgeyi Gör", disabled=is_generating, help=btn_help):
+                        if st.button("Belgeyi Gör", disabled=is_generating, help=btn_help):
                             try:
                                 from app.document_loader import _read_file_content
                                 st.session_state.preview_content = _read_file_content(file_path)
@@ -182,15 +314,6 @@ def main() -> None:
                 file_name="rag_sohbet_raporu.md",
                 mime="text/markdown",
             )
-            if st.button("🗑️ Sohbet Geçmişini Temizle"):
-                st.session_state.messages = []
-                st.rerun()
-
-            if st.button("🛑 Yanıt Üretimini Durdur", type="secondary"):
-                if st.session_state.get("messages") and st.session_state.messages[-1]["role"] == "user":
-                    st.session_state.messages.pop()
-                st.session_state.is_generating = False
-                st.warning("Yanıt üretimi durduruldu.")
 
         # Açılır menülerin ekran altında kesilmesini önlemek için alt boşluk
         st.markdown("<div style='height: 250px;'></div>", unsafe_allow_html=True)
@@ -203,24 +326,26 @@ def main() -> None:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
             if "sources" in msg and msg["sources"]:
-                with st.expander("📚 Kullanılan Kaynaklar"):
+                with st.expander("Kullanılan Kaynaklar"):
                     for src in msg["sources"]:
                         st.markdown(f"- **{src['source']}** (Parça {src['chunk']}, Benzerlik: `{src['score']:.2f}`)")
 
-    query = st.chat_input("Belgeleriniz hakkında soru sorun...")
+    query = st.chat_input("Belgeleriniz hakkında soru sorun...", disabled=st.session_state.get("is_generating", False))
+
     if query:
         st.session_state.is_generating = True
         st.session_state.messages.append({"role": "user", "content": query})
-        with st.chat_message("user"):
-            st.write(query)
+        st.rerun()
 
+    if st.session_state.get("is_generating", False) and st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+        latest_query = st.session_state.messages[-1]["content"]
         with st.chat_message("assistant"):
-            with st.spinner("Yanıt üretiliyor..."):
+            with st.status("Yanıt üretiliyor...", expanded=True):
                 try:
                     runtime = _get_runtime()
                     history = st.session_state.messages[:-1]
                     answer = answer_question(
-                        query,
+                        latest_query,
                         repository,
                         runtime,
                         chat_history=history,
@@ -232,7 +357,7 @@ def main() -> None:
 
                     sources_data = []
                     if answer.sources:
-                        with st.expander("📚 Kullanılan Kaynaklar"):
+                        with st.expander("Kullanılan Kaynaklar"):
                             for res in answer.sources:
                                 src_info = {
                                     "source": res.chunk.source_path,
@@ -251,10 +376,11 @@ def main() -> None:
                     st.error(f"Yanıt üretme hatası: {exc}")
                 finally:
                     st.session_state.is_generating = False
+                    st.rerun()
 
 
 # Modelleri bellekte kalıcı tut; her soruda yeniden yüklenmesini engelle
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def _get_runtime() -> FoundryRuntime:
     """FoundryRuntime'ı bir kez oluştur ve bellekte tut."""
     rt = FoundryRuntime()
