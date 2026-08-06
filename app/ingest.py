@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from app.chunker import chunk_text
 from app.config import CHUNK_OVERLAP, CHUNK_SIZE, EMBEDDING_MODEL_ALIAS, KNOWLEDGE_BASE_DIR
@@ -58,7 +59,7 @@ def run_ingest(
     if stale_model and not force_reindex:
         raise ValueError(
             f"⚠️ İndeks uyumsuz embedding modeli içeriyor: '{stale_model}' (aktif: '{EMBEDDING_MODEL_ALIAS}'). "
-            f"Yeniden indekslemek için --force-reindex bayrağını kullanın veya Streamlit arayüzünden 'Yeniden İndeksle' butonuna basın."
+            f"Yeniden indekslemek için --force-reindex bayrağını kullanın veya arayüzden 'Yeniden İndeksle' butonuna basın."
         )
 
     documents = discover_documents(KNOWLEDGE_BASE_DIR)

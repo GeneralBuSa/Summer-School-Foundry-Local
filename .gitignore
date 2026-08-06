@@ -1,17 +1,22 @@
-# Python virtual environments and bytecode
+# Python
 .venv*/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.codebase-memory/
 
-# Local RAG runtime data
+# Araç/IDE yapılandırmaları
+.codebase-memory/
+.streamlit/
+.env
+
+# RAG veritabanı ve runtime verileri
 data/*.db
 data/*.db-*
+data/*.log
+data/*.txt
+
+# Bilgi tabanı ikili dosyaları (metin dosyaları takip edilir)
 knowledge_base/**/*.pdf
 knowledge_base/**/*.docx
-knowledge_base/*.pdf
-knowledge_base/*.docx
-
-# Local environment files
-.env
+knowledge_base/**/*.xlsx
+knowledge_base/**/*.csv

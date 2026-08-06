@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import re
-
 from app.domain import RetrievalResult
-
-
 from app.retrieval import _tokenize
 
 
