@@ -1,4 +1,8 @@
-"""Foundry Local SDK model yaşam döngüsü için ince sarmalayıcı."""
+"""Foundry Local SDK model yaşam döngüsü sarmalayıcısı.
+
+Bu modül, Foundry Local SDK aracılığıyla LLM sohbet modellerinin ve embedding modellerinin
+yüklenmesi, GPU/CPU varyant seçimi ve bellekten çıkarılması (load/unload) süreçlerini yönetir.
+"""
 
 from __future__ import annotations
 
@@ -11,39 +15,56 @@ from app.config import APP_NAME, CHAT_MODEL_ALIAS, EMBEDDING_MODEL_ALIAS
 
 
 class FoundryRuntimeError(RuntimeError):
-    """Kullanıcıya anlaşılır Foundry Local çalışma zamanı hatası verir."""
+    """Foundry Local çalışma zamanında (SDK, model yükleme vb.) oluşan hataları temsil eden özel sınıf."""
 
 
 class FoundryRuntime:
+    """Foundry Local model istemcilerini (Embedding ve Chat) yöneten çalışma zamanı sınıfı."""
+
     def __init__(self) -> None:
         self._manager: Any | None = None
         self._embedding_model: Any | None = None
         self._chat_model: Any | None = None
 
     def start(self) -> None:
-        """Çalışma sağlayıcılarını ve SDK yöneticisini uygulama başına bir kez hazırlar."""
+        """SDK yöneticisini (FoundryLocalManager) uygulama başına bir kez başlatır.
+
+        Raises:
+            FoundryRuntimeError: SDK başlatma esnasında beklenmeyen bir hata meydana gelirse.
+        """
         if self._manager is not None:
             return
         try:
             if getattr(FoundryLocalManager, "instance", None) is None:
                 FoundryLocalManager.initialize(Configuration(app_name=APP_NAME))
             self._manager = FoundryLocalManager.instance
-            # SDK, indirilmiş sağlayıcılar için bu çağrıyı çevrimdışı modda güvenle atlar.
+            # İndirilmiş execution provider'lar için kaydı çevrimdışı modda günceller
             try:
                 self._manager.download_and_register_eps()
             except Exception:
                 pass
-        except Exception as exc:  # SDK farklı platform hatası türleri döndürebilir.
+        except Exception as exc:
             raise FoundryRuntimeError(
                 "Foundry Local başlatılamadı. SDK kurulumunu kontrol edin."
             ) from exc
 
     def _get_and_load_model(self, alias: str) -> Any:
+        """Katalogdan takma ada (alias) göre modeli bulur, en uygun (GPU/önbellek) varyantı seçer ve yükler.
+
+        Args:
+            alias (str): Yüklenecek modelin takma adı (örn. 'bge-m3' veya 'phi-4').
+
+        Returns:
+            Any: Yüklenmiş ve kullanıma hazır model nesnesi.
+
+        Raises:
+            FoundryRuntimeError: Model bulunamazsa veya yükleme başarısız olursa.
+        """
         self.start()
         assert self._manager is not None
         last_error: Exception | None = None
-        # Katalog isteği veya model önbelleği geçici olarak başarısız olursa bir
-        # kez kısa beklemeyle tekrar dene. Sürekli döngüye girme.
+
+        # Geçici SDK bağlantı hatalarına karşı maksimum 2 deneme
         for attempt in range(2):
             try:
                 model = self._manager.catalog.get_model(alias)
@@ -51,8 +72,7 @@ class FoundryRuntime:
                     raise FoundryRuntimeError(
                         f"Model katalogda bulunamadı: {alias}. Kullanılabilir model alias'larını kontrol edin."
                     )
-                # İndirilmemiş GPU varyantı için internetten 2.18 GB dosya indirilip gecikme yaşanmaması için
-                # öncelikle bilgisayarda önceden indirilmiş ve hazır olan (cached=True) yerel varyant seçilir.
+                # İndirilmemiş GPU varyantı yerine yerel önbellekteki (cached) GPU veya CPU varyantını öncelikle seç
                 cached_gpu = next(
                     (
                         variant
@@ -72,7 +92,7 @@ class FoundryRuntime:
                 if selected_variant is not None:
                     model.select_variant(selected_variant)
 
-                # Yalnızca önbellekte yoksa indirmeyi dene; hazır model için internet bekleme
+                # Yalnızca önbellekte yoksa indirmeyi dene
                 if selected_variant is not None and not getattr(selected_variant.info, "cached", False):
                     try:
                         model.download()
@@ -89,17 +109,27 @@ class FoundryRuntime:
         raise FoundryRuntimeError(f"Model indirilemedi veya yüklenemedi: {alias}") from last_error
 
     def embedding_client(self) -> Any:
+        """Embedding modeli istemci nesnesini temin eder (gerekirse tembel yükler).
+
+        Returns:
+            Any: Embedding üretimi için istemci nesnesi.
+        """
         if self._embedding_model is None:
             self._embedding_model = self._get_and_load_model(EMBEDDING_MODEL_ALIAS)
         return self._embedding_model.get_embedding_client()
 
     def chat_client(self) -> Any:
+        """Sohbet (Chat LLM) modeli istemci nesnesini temin eder (gerekirse tembel yükler).
+
+        Returns:
+            Any: Metin tamamlama/sohbet için istemci nesnesi.
+        """
         if self._chat_model is None:
             self._chat_model = self._get_and_load_model(CHAT_MODEL_ALIAS)
         return self._chat_model.get_chat_client()
 
     def close(self) -> None:
-        """Yüklenmiş modelleri ters sırayla güvenle bellekten çıkarır."""
+        """Yüklenmiş tüm modelleri bellekten güvenle çıkarır ve kaynakları serbest bırakır."""
         for attribute in ("_chat_model", "_embedding_model"):
             model = getattr(self, attribute)
             if model is None:
@@ -110,9 +140,8 @@ class FoundryRuntime:
                 setattr(self, attribute, None)
 
     def __enter__(self) -> "FoundryRuntime":
-        # Model ve execution provider yüklemesi lazy'dir. Böylece değişmemiş
-        # belgelerin indekslemesinde veya boş indekste gereksiz başlangıç yoktur.
         return self
 
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:
         self.close()
+

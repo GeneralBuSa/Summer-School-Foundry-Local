@@ -1,4 +1,8 @@
-"""Belge keşfi, embedding üretimi ve kalıcı indeksleme orkestrasyonu."""
+"""Belge keşfi, embedding üretimi ve kalıcı indeksleme orkestrasyonu.
+
+Bu modül, bilgi tabanındaki (knowledge_base/) belgeleri tespit eder, metin parçalarına ayırır (chunking),
+vektör embedding'lerini üretir ve veritabanına kaydeder.
+"""
 
 from __future__ import annotations
 
@@ -11,21 +15,27 @@ from app.document_loader import discover_documents
 from app.foundry import FoundryRuntime
 from app.repository import SQLiteRepository
 
-# CPU embedding modeli büyük toplu isteklerde zaman aşımına uğrayabiliyor;
-# chunk'ları küçük gruplar halinde gönderiyoruz.
+# CPU üzerinde çalışan embedding modellerinde zaman aşımını önlemek için grup boyutu
 EMBEDDING_BATCH_SIZE = 32
 
 
 @dataclass(frozen=True)
 class IngestSummary:
+    """İndeksleme işlemi sonucunda elde edilen özet istatistikler."""
     indexed_documents: int
     skipped_documents: int
     chunk_count: int
 
 
 def check_model_compatibility(repository: SQLiteRepository) -> str | None:
-    """İndeksteki embedding modeli ile aktif model arasındaki uyumsuzluğu kontrol eder.
-    Uyumsuz model adı varsa döndürür, yoksa None döndürür."""
+    """İndeksteki mevcut embedding modeli ile sistemin aktif modeli arasındaki uyumu kontrol eder.
+
+    Args:
+        repository (SQLiteRepository): Veritabanı erişim nesnesi.
+
+    Returns:
+        str | None: Uyumsuz eski model adları varsa virgülle ayrılmış metin, yoksa None.
+    """
     indexed_models = repository.get_indexed_embedding_models()
     if indexed_models and EMBEDDING_MODEL_ALIAS not in indexed_models:
         stale = ", ".join(sorted(indexed_models))
@@ -34,11 +44,20 @@ def check_model_compatibility(repository: SQLiteRepository) -> str | None:
 
 
 def _safe_generate_embeddings(embedding_client: Any, batch: list[str]) -> list[list[float]]:
-    """Zaman aşımı veya SDK hatası durumunda batch'i otomatik küçük parçalara bölerek güvenle işler."""
+    """Zaman aşımı veya SDK hatası durumunda batch'i rekürsif olarak küçük parçalara bölerek işler.
+
+    Args:
+        embedding_client (Any): Foundry embedding istemci nesnesi.
+        batch (list[str]): Embedding'i üretilecek metin parçaları listesi.
+
+    Returns:
+        list[list[float]]: Üretilen sayısal embedding vektörleri listesi.
+    """
     try:
         response = embedding_client.generate_embeddings(batch)
         return [item.embedding for item in response.data]
     except Exception:
+        # Hata durumunda grup boyutunu 4 veya yarısına indirerek tekrar dener
         if len(batch) <= 4:
             res_embeddings: list[list[float]] = []
             for text in batch:
@@ -52,9 +71,23 @@ def _safe_generate_embeddings(embedding_client: Any, batch: list[str]) -> list[l
 def run_ingest(
     repository: SQLiteRepository, runtime: FoundryRuntime, force_reindex: bool = False
 ) -> IngestSummary:
+    """Tüm belge indeksleme sürecini yürütür ve veritabanını günceller.
+
+    Args:
+        repository (SQLiteRepository): Veritabanı deposu.
+        runtime (FoundryRuntime): Çalışma zamanı istemcisi.
+        force_reindex (bool): Model uyumsuzluğu olsa bile yeniden indekslemeyi zorla.
+
+    Returns:
+        IngestSummary: İşlenen ve atlanan belgelere ait özet sonuçlar.
+
+    Raises:
+        ValueError: Model uyumsuzluğu varsa veya indekslenecek dosya yoksa.
+        RuntimeError: Embedding üretimi esnasında eksik yanıt alınırsa.
+    """
     repository.initialize()
 
-    # Model uyumluluk kontrolü
+    # İndeksteki model uyumluluğunun denetlenmesi
     stale_model = check_model_compatibility(repository)
     if stale_model and not force_reindex:
         raise ValueError(
@@ -62,12 +95,14 @@ def run_ingest(
             f"Yeniden indekslemek için --force-reindex bayrağını kullanın veya arayüzden 'Yeniden İndeksle' butonuna basın."
         )
 
+    # Diskteki belgelerin keşfedilmesi
     documents = discover_documents(KNOWLEDGE_BASE_DIR)
     if not documents:
         repository.remove_missing_documents(set())
         raise ValueError(
             "İndekslenecek belge yok. knowledge_base/ klasörüne UTF-8 .md veya .txt dosyası ekleyin."
         )
+    # Silinen belgelerin veritabanından temizlenmesi
     repository.remove_missing_documents({document.source_path for document in documents})
 
     indexed_documents = 0
@@ -76,10 +111,12 @@ def run_ingest(
     embedding_client = None
 
     for document in documents:
+        # Belge içeriği değişmediyse yeniden işleme tabi tutma
         if repository.is_current(document.source_path, document.content_hash, EMBEDDING_MODEL_ALIAS):
             skipped_documents += 1
             continue
 
+        # Metnin belirlenen boyutta parçalara bölünmesi
         chunks = chunk_text(document.content, CHUNK_SIZE, CHUNK_OVERLAP)
         if not chunks:
             skipped_documents += 1
@@ -90,7 +127,7 @@ def run_ingest(
         if embedding_client is None:
             embedding_client = runtime.embedding_client()
 
-        # Büyük belgelerde timeout'u önlemek için batch'ler halinde gönder
+        # Parçaların gruplar halinde embedding sunucusuna iletilmesi
         embeddings: list[list[float]] = []
         for batch_start in range(0, len(chunks), EMBEDDING_BATCH_SIZE):
             batch = chunks[batch_start:batch_start + EMBEDDING_BATCH_SIZE]
@@ -104,11 +141,14 @@ def run_ingest(
                     pf.write(f"{status_line}\n")
             except Exception:
                 pass
+
         if len(embeddings) != len(chunks):
             raise RuntimeError(
                 f"Embedding yanıtı eksik: {document.source_path} için {len(chunks)} parça, "
                 f"{len(embeddings)} embedding döndü."
             )
+
+        # Güncellenen belgenin SQLite veritabanına kaydedilmesi
         repository.replace_document(
             document.source_path,
             document.content_hash,
@@ -120,3 +160,4 @@ def run_ingest(
         chunk_count += len(chunks)
 
     return IngestSummary(indexed_documents, skipped_documents, chunk_count)
+

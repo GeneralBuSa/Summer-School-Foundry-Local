@@ -1,4 +1,8 @@
-"""Yerel bilgi tabanındaki desteklenen belgeleri güvenle okur."""
+"""Yerel bilgi tabanındaki desteklenen belgeleri güvenle okur ve işler.
+
+Bu modül Markdown (.md), Metin (.txt), PDF (.pdf), Word (.docx), Excel (.xlsx) ve CSV (.csv)
+dosyalarını okur, metin içeriğini çıkarır, normalleştirir ve OCR fallback desteği sunar.
+"""
 
 from __future__ import annotations
 
@@ -11,15 +15,36 @@ from app.domain import SourceDocument
 
 
 def normalize_text(text: str) -> str:
-    """Satır sonlarını sabitler, ancak belgenin anlamını değiştirmez."""
+    """Metindeki satır sonu karakterlerini (CRLF, CR) Unix formatına (\n) dönüştürür ve kenar boşlukları temizler.
+
+    Args:
+        text (str): İşlenecek ham metin.
+
+    Returns:
+        str: Formatı düzeltilmiş ve temizlenmiş metin.
+    """
     return text.replace("\r\n", "\n").replace("\r", "\n").strip()
 
 
 def _read_file_content(path: Path) -> str:
-    """Farklı dosya biçimlerinden düz metin çıkartır."""
+    """Farklı uzantılara sahip dosyaların türüne uygun kütüphaneler ile metin içeriğini çıkarır.
+
+    Args:
+        path (Path): Okunacak dosyanın tam veya bağıl yolu.
+
+    Returns:
+        str: Çıkarılan metin içeriği.
+
+    Raises:
+        ValueError: İlgili dosya türünü okumak için gerekli bağımlılık yoksa veya dosya desteklenmiyorsa.
+    """
     suffix = path.suffix.lower()
+
+    # Düz metin ve Markdown belgelerinin doğrudan okunması
     if suffix in {".md", ".txt"}:
         return path.read_text(encoding="utf-8")
+
+    # PDF belgelerinin işlenmesi ve gerektiğinde Tesseract OCR çalıştırılması
     elif suffix == ".pdf":
         try:
             import pypdf  # type: ignore
@@ -33,9 +58,9 @@ def _read_file_content(path: Path) -> str:
                     pages_text.append(text)
                 else:
                     ocr_needed_pages.append(i)
-                    pages_text.append("")  # Yer tutucu
+                    pages_text.append("")  # OCR için yer tutucu
 
-            # OCR fallback: pypdf metin bulamayan sayfalar için
+            # Taranmış veya metin içermeyen sayfalar için OCR fallback
             if ocr_needed_pages:
                 try:
                     from pdf2image import convert_from_path  # type: ignore
@@ -58,6 +83,8 @@ def _read_file_content(path: Path) -> str:
             return "\n".join(pages_text)
         except ImportError:
             raise ValueError(f"PDF dosyasını okumak için 'pypdf' kütüphanesi kurulu olmalıdır: {path}")
+
+    # Word (.docx) belgelerinin okunması
     elif suffix == ".docx":
         try:
             import docx  # type: ignore
@@ -65,6 +92,8 @@ def _read_file_content(path: Path) -> str:
             return "\n".join(p.text for p in doc.paragraphs if p.text)
         except ImportError:
             raise ValueError(f"DOCX dosyasını okumak için 'python-docx' kütüphanesi kurulu olmalıdır: {path}")
+
+    # Tablo tabanlı CSV belgelerinin sütun isimleriyle birlikte okunması
     elif suffix == ".csv":
         import csv
         lines: list[str] = []
@@ -86,6 +115,8 @@ def _read_file_content(path: Path) -> str:
                     ]
                     lines.append(" | ".join(row_pairs) if row_pairs else " | ".join(cleaned_row))
         return "\n".join(lines)
+
+    # Excel (.xlsx) belgelerinin sayfa sayfa okunması
     elif suffix == ".xlsx":
         try:
             import openpyxl  # type: ignore
@@ -103,15 +134,27 @@ def _read_file_content(path: Path) -> str:
                 wb.close()
         except ImportError:
             raise ValueError(f"XLSX dosyasını okumak için 'openpyxl' kütüphanesi kurulu olmalıdır: {path}")
+
     raise ValueError(f"Desteklenmeyen dosya biçimi: {path}")
 
 
 def discover_documents(knowledge_base_dir: Path) -> list[SourceDocument]:
-    """`.md`, `.txt`, `.pdf`, `.docx`, `.xlsx` ve `.csv` belgelerini alfabetik ve tekrar üretilebilir sırayla döndürür."""
+    """Bilgi tabanı dizinindeki desteklenen tüm dosyaları tarar ve SourceDocument nesneleri olarak yükler.
+
+    Args:
+        knowledge_base_dir (Path): Taranacak ana bilgi tabanı dizini.
+
+    Returns:
+        list[SourceDocument]: Keşfedilen geçerli ve dolu kaynak belgelerin listesi.
+
+    Raises:
+        ValueError: Dosya okuma veya UTF-8 kodlama hatası yaşanırsa.
+    """
     if not knowledge_base_dir.exists():
         return []
 
     documents: list[SourceDocument] = []
+    # Dosyaları alfabetik sırayla tarama
     for path in sorted(knowledge_base_dir.rglob("*"), key=lambda item: item.as_posix().lower()):
         if not path.is_file() or path.suffix.lower() not in SUPPORTED_SUFFIXES:
             continue
@@ -130,4 +173,6 @@ def discover_documents(knowledge_base_dir: Path) -> list[SourceDocument]:
         source_path = path.relative_to(knowledge_base_dir.parent).as_posix()
         content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         documents.append(SourceDocument(source_path, content, content_hash))
+
     return documents
+

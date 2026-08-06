@@ -1,4 +1,8 @@
-"""FastAPI tabanlı yerel RAG REST API sunucusu."""
+"""FastAPI tabanlı yerel RAG REST API sunucusu.
+
+Bu modül, istemci (frontend veya diğer servisler) ile yerel RAG (Retrieval-Augment Generation)
+motoru arasında köprü kuran RESTful API uç noktalarını (endpoints) barındırır.
+"""
 
 from __future__ import annotations
 
@@ -17,9 +21,10 @@ from app.ingest import run_ingest
 from app.chat import answer_question
 from app.document_loader import _read_file_content
 
+# FastAPI uygulama örneğinin başlık ve sürüm bilgisi ile başlatılması
 app = FastAPI(title="Yerel RAG Asistanı API", version="1.0.0")
 
-# Next.js ön yüzü için CORS izni
+# Next.js ön yüzü ve harici istemciler için Cross-Origin Resource Sharing (CORS) izinleri
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,13 +33,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Vektör veri veritabanı deposunun başlatılması
 repository = SQLiteRepository(DATABASE_PATH)
 repository.initialize()
 
+# Foundry çalışma zamanı örneği için singleton önbellek değişkeni
 _runtime_instance: Optional[FoundryRuntime] = None
 
 
 def get_runtime() -> FoundryRuntime:
+    """Foundry Runtime örneğini döndürür veya yoksa oluşturup başlatır (Singleton Deseni).
+
+    Returns:
+        FoundryRuntime: Başlatılmış Foundry çalışma zamanı nesnesi.
+    """
     global _runtime_instance
     if _runtime_instance is None:
         _runtime_instance = FoundryRuntime()
@@ -43,11 +55,13 @@ def get_runtime() -> FoundryRuntime:
 
 
 class ChatMessage(BaseModel):
+    """Sohbet geçmişindeki tek bir mesajı temsil eden veri modeli."""
     role: str
     content: str
 
 
 class ChatRequest(BaseModel):
+    """Sohbet API uç noktası için istek (request) veri modeli."""
     question: str
     chat_history: Optional[List[ChatMessage]] = None
     top_k: int = TOP_K
@@ -56,16 +70,26 @@ class ChatRequest(BaseModel):
 
 
 class IngestRequest(BaseModel):
+    """İndeksleme API uç noktası için istek parametre modeli."""
     force_reindex: bool = False
 
 
 @app.get("/api/health")
 def health_check():
+    """Sunucu ve kullanılan embedding modelinin durumunu kontrol eden uç nokta."""
     return {"status": "ok", "embedding_model": EMBEDDING_MODEL_ALIAS}
 
 
 @app.post("/api/chat")
 def chat_endpoint(req: ChatRequest):
+    """Kullanıcının sorusuna RAG mimarisi üzerinden yanıt üreten uç nokta.
+
+    Args:
+        req (ChatRequest): Kullanıcı sorusu, sohbet geçmişi ve arama parametreleri.
+
+    Returns:
+        dict: Yanıt metni, yararlanılan kaynaklar ve bilginin doğrulanma (grounded) durumu.
+    """
     try:
         runtime = get_runtime()
         history = [m.model_dump() for m in req.chat_history] if req.chat_history else []
@@ -101,6 +125,14 @@ def chat_endpoint(req: ChatRequest):
 
 @app.post("/api/upload")
 async def upload_documents(files: List[UploadFile] = File(...)):
+    """Bilgi tabanına (knowledge base) yeni belgeler yükleyen uç nokta.
+
+    Args:
+        files (List[UploadFile]): Yüklenecek dosya listesi.
+
+    Returns:
+        dict: Yüklenen dosya adları ve işlem durum mesajı.
+    """
     KNOWLEDGE_BASE_DIR.mkdir(parents=True, exist_ok=True)
     saved_files = []
     allowed_extensions = {".md", ".txt", ".pdf", ".docx", ".xlsx", ".csv"}
@@ -121,6 +153,14 @@ async def upload_documents(files: List[UploadFile] = File(...)):
 
 @app.post("/api/ingest")
 def ingest_endpoint(req: IngestRequest):
+    """Bilgi tabanındaki belgeleri okuyup vektör veritabanına indeksleyen uç nokta.
+
+    Args:
+        req (IngestRequest): Yeniden indeksleme zorlama parametresi.
+
+    Returns:
+        dict: İndekslenen, atlanan belge sayıları ve üretilen chunk sayısı özeti.
+    """
     try:
         runtime = get_runtime()
         summary = run_ingest(repository, runtime, force_reindex=req.force_reindex)
@@ -135,6 +175,7 @@ def ingest_endpoint(req: IngestRequest):
 
 @app.get("/api/documents")
 def list_documents():
+    """Bilgi tabanında mevcut tüm belgelerin listesini döndüren uç nokta."""
     if not KNOWLEDGE_BASE_DIR.exists():
         return {"documents": []}
     files = sorted([
@@ -147,6 +188,14 @@ def list_documents():
 
 @app.get("/api/preview")
 def preview_document(file_path: str = Query(...)):
+    """Seçilen bir belgenin metin içeriğini önizleme amacıyla okuyup döndüren uç nokta.
+
+    Args:
+        file_path (str): Önizlenecek belgenin bağıl yolu.
+
+    Returns:
+        dict: Belge yolu ve içerik metni.
+    """
     target_path = KNOWLEDGE_BASE_DIR / file_path
     if not target_path.exists() or not target_path.is_file():
         raise HTTPException(status_code=404, detail="Belge bulunamadı.")
@@ -155,3 +204,4 @@ def preview_document(file_path: str = Query(...)):
         return {"file_path": file_path, "content": content}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Belge okunamadı: {exc}")
+

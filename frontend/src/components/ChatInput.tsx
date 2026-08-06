@@ -1,13 +1,25 @@
 "use client";
 
+/**
+ * Sohbet Girdi Kutusu (ChatInput Component)
+ *
+ * Kullanıcının sorularını yazıp gönderebildiği, uzunluğuna göre otomatik genişleyen textarea
+ * ve yanıt üretimi esnasında durdurma (Stop) onay popup modalını barındıran bileşen.
+ */
+
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, Square, AlertTriangle } from "lucide-react";
 
+/** ChatInput bileşeni prop arayüzü */
 interface ChatInputProps {
+  /** Soru gönderme işlevi */
   onSend: (message: string) => void;
+  /** Yanıt üretimini durdurma işlevi */
   onStop: () => void;
+  /** Yanıt üretilme durumu (loading) */
   isGenerating: boolean;
+  /** Tema modu ("dark" | "light") */
   theme?: "dark" | "light";
 }
 
@@ -21,6 +33,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, isGenerati
     setIsMounted(true);
   }, []);
 
+  // Girdi metni geliştikçe textarea yüksekliğini dinamik olarak ayarla
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
@@ -28,6 +41,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, isGenerati
     }
   }, [input]);
 
+  /** Form gönderildiğinde tetiklenen işleyici */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isGenerating) return;
@@ -35,6 +49,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, isGenerati
     setInput("");
   };
 
+  /** Enter tuşuna basıldığında (Shift+Enter hariç) formu gönderir */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -52,6 +67,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, isGenerati
             : "bg-white border-zinc-300 focus-within:border-rose-500/50 shadow-md"
         }`}
       >
+        {/* Metin Giriş Alanı */}
         <textarea
           ref={textareaRef}
           value={input}
@@ -67,6 +83,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, isGenerati
           }`}
         />
 
+        {/* Gönder / Durdur Butonu */}
         {isGenerating ? (
           <button
             type="button"
@@ -92,7 +109,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, isGenerati
         )}
       </form>
 
-      {/* İptal Etme Onay Pop-up Modal (createPortal ile ekranın ortasına sabitlendi) */}
+      {/* İptal Etme Onay Pop-up Modal (createPortal ile gövdeye sabitlendi) */}
       {showStopConfirm && isMounted && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-sm p-5 rounded-2xl border shadow-2xl transition-all ${
@@ -139,3 +156,4 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, onStop, isGenerati
     </>
   );
 };
+

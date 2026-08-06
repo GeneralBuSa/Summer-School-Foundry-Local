@@ -1,13 +1,25 @@
 "use client";
 
+/**
+ * Üst Başlık (Header) Bileşeni
+ *
+ * Uygulamanın başlığını, alt bilgisini, tema değiştirme (Dark/Light) butonunu
+ * ve sohbet geçmişini temizleme onay pop-up modal ekranını barındırır.
+ */
+
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Trash2, Bot, Sun, Moon, AlertTriangle } from "lucide-react";
 
+/** Header bileşeni prop parametreleri */
 interface HeaderProps {
+  /** Sohbet geçmişini temizleyen işlev */
   onClearChat: () => void;
+  /** Ekran aktif mesaj içeriyor mu bilgisi */
   hasMessages: boolean;
+  /** Aktif tema modu ("dark" | "light") */
   theme: "dark" | "light";
+  /** Temalar arası geçiş yaptıran tetikleyici fonksiyon */
   onToggleTheme: () => void;
 }
 
@@ -17,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   onToggleTheme,
 }) => {
+  // Temizleme onay modalı ve hydration kontrol state'leri
   const [showConfirm, setShowConfirm] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -31,6 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
           ? "border-zinc-900 bg-black/90 text-zinc-100"
           : "border-zinc-200 bg-white/90 text-zinc-900"
       } backdrop-blur-md`}>
+        {/* Sol Logo ve Başlık Bilgisi */}
         <div className="flex items-center gap-3">
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
             theme === "dark"
@@ -49,6 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
+        {/* Sağ Buton Grubu: Tema ve Temizle */}
         <div className="flex items-center gap-2">
           <button
             onClick={onToggleTheme}
@@ -78,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </header>
 
-      {/* Silme Onay Modal Pop-up (createPortal ile ekranın ortasına sabitlendi) */}
+      {/* Silme Onay Modal Pop-up (React Portal ile iletilir) */}
       {showConfirm && isMounted && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className={`w-full max-w-sm p-5 rounded-2xl border shadow-2xl transition-all ${
@@ -125,3 +140,4 @@ export const Header: React.FC<HeaderProps> = ({
     </>
   );
 };
+

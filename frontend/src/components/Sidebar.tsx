@@ -1,8 +1,16 @@
 "use client";
 
+/**
+ * Sol Kenar Çubuğu (Sidebar Component)
+ *
+ * Belge yükleme (Upload), yeniden indeksleme (Ingest), belge önizleme (Preview),
+ * sohbet dışa aktarma (Export) ve RAG parametre ayarlarını (top_k, min_score, alpha) barındıran bileşen.
+ */
+
 import React, { useState, useEffect, useRef } from "react";
 import { Upload, RefreshCw, Sliders, Eye, FileText, Download, X, ChevronDown } from "lucide-react";
 
+/** Sidebar bileşeni prop parametreleri arayüzü */
 interface SidebarProps {
   topK: number;
   setTopK: (v: number) => void;
@@ -28,6 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   apiBase,
   theme = "dark",
 }) => {
+  // Belge ve önizleme state'leri
   const [documents, setDocuments] = useState<string[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<string>("");
   const [previewContent, setPreviewContent] = useState<string | null>(null);
@@ -37,8 +46,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isSelectOpen, setIsSelectOpen] = useState(false);
   const selectRef = useRef<HTMLDivElement>(null);
 
+  // Yan çubuk genişliğini yeniden boyutlandırma (Resize) state'leri
   const [width, setWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
+
 
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault();

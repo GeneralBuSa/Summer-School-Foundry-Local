@@ -1,4 +1,8 @@
-"""SQLite şeması, transaction işlemleri ve indeks kayıtları."""
+"""SQLite şeması, transaction işlemleri ve indeks kayıtları.
+
+Bu modül, belge metinlerinin ve bunlara ait embedding vektörlerinin SQLite veritabanı
+üzerinde güvenli (ACID uyumlu) saklanmasını ve yönetilmesini sağlar.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +16,7 @@ from typing import Iterator, Sequence
 from app.domain import StoredChunk
 
 
+# Veritabanı şema tanımı: belgeler (documents) ve parçalar (chunks) tabloları
 SCHEMA = """
 PRAGMA foreign_keys = ON;
 
@@ -38,15 +43,26 @@ CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks(document_id);
 
 
 class RepositoryError(RuntimeError):
-    """Bozuk veya beklenmeyen kalıcı indeks verisi için hata."""
+    """Bozuk veya beklenmeyen kalıcı indeks verisi oluştuğunda fırlatılan özel istisna."""
 
 
 class SQLiteRepository:
+    """SQLite veritabanı işlemlerini yöneten depo sınıfı.
+
+    Attributes:
+        database_path (Path): SQLite veritabanı dosyasının disk yolu.
+    """
+
     def __init__(self, database_path: Path):
         self.database_path = database_path
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
+        """Güvenli veritabanı bağlantısı oluşturan ve otomatik kapatan bağlam yöneticisi (context manager).
+
+        Yields:
+            sqlite3.Connection: Yapılandırılmış SQLite bağlantı nesnesi.
+        """
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
@@ -57,11 +73,16 @@ class SQLiteRepository:
             connection.close()
 
     def initialize(self) -> None:
+        """Veritabanı tablolarını ve indekslerini şemaya uygun olarak oluşturur."""
         with self._connection() as connection:
             connection.executescript(SCHEMA)
 
     def get_indexed_embedding_models(self) -> set[str]:
-        """İndekste kayıtlı tüm farklı embedding model adlarını döndürür."""
+        """İndekste kayıtlı tüm farklı embedding model adlarını döndürür.
+
+        Returns:
+            set[str]: Kullanılan model isimlerinin kümesi.
+        """
         with self._connection() as connection:
             rows = connection.execute(
                 "SELECT DISTINCT embedding_model FROM chunks"
@@ -69,6 +90,16 @@ class SQLiteRepository:
             return {row["embedding_model"] for row in rows}
 
     def is_current(self, source_path: str, content_hash: str, embedding_model: str) -> bool:
+        """Belgenin mevcut indekste güncel olup olmadığını kontrol eder.
+
+        Args:
+            source_path (str): Belgenin dosya yolu.
+            content_hash (str): Belge içeriğinin SHA256 özeti.
+            embedding_model (str): Kullanılan embedding modelinin adı.
+
+        Returns:
+            bool: Belge değişmediyse ve aynı model ile indekslendiysse True, aksi halde False.
+        """
         with self._connection() as connection:
             row = connection.execute(
                 "SELECT id FROM documents WHERE source_path = ? AND content_hash = ?",
@@ -94,6 +125,19 @@ class SQLiteRepository:
         embeddings: Sequence[Sequence[float]],
         embedding_model: str,
     ) -> None:
+        """Bir belgenin parçalarını ve embedding'lerini atomik bir işlemle (transaction) günceller veya ekler.
+
+        Args:
+            source_path (str): Belgenin dosya yolu.
+            content_hash (str): İçerik özeti (hash).
+            chunks (Sequence[str]): Metin parçaları dizisi.
+            embeddings (Sequence[Sequence[float]]): Parçalara karşılık gelen embedding vektörleri.
+            embedding_model (str): Kullanılan embedding model adı.
+
+        Raises:
+            ValueError: Parça ve embedding sayıları eşleşmiyorsa veya liste boşsa.
+            RepositoryError: SQLite kayıt işlemi esnasında hata meydana gelirse.
+        """
         if len(chunks) != len(embeddings):
             raise ValueError("Parça ve embedding sayıları eşit olmalıdır.")
         if not chunks:
@@ -144,6 +188,17 @@ class SQLiteRepository:
                 raise RepositoryError("SQLite indeks yazımı başarısız oldu.") from exc
 
     def get_chunks(self, embedding_model: str) -> list[StoredChunk]:
+        """Belirtilen embedding modeli ile indekslenmiş tüm metin parçalarını çeker.
+
+        Args:
+            embedding_model (str): Aranan embedding modeli.
+
+        Returns:
+            list[StoredChunk]: Kayıtlı parçalar ve vektör bilgileri listesi.
+
+        Raises:
+            RepositoryError: Kayıtlı embedding JSON verisi bozuksa.
+        """
         with self._connection() as connection:
             rows = connection.execute(
                 """
@@ -180,7 +235,14 @@ class SQLiteRepository:
         return stored_chunks
 
     def remove_missing_documents(self, existing_source_paths: set[str]) -> int:
-        """Bilgi tabanından silinen dosyaların eski kayıtlarını kaldırır."""
+        """Diskte artık bulunmayan belgelere ait veritabanı kayıtlarını temizler.
+
+        Args:
+            existing_source_paths (set[str]): Diskte mevcut olan geçerli dosya yolları kümesi.
+
+        Returns:
+            int: Veritabanından silinen belge sayısı.
+        """
         with self._connection() as connection:
             rows = connection.execute("SELECT id, source_path FROM documents").fetchall()
             stale_ids = [row["id"] for row in rows if row["source_path"] not in existing_source_paths]
@@ -188,3 +250,4 @@ class SQLiteRepository:
                 connection.executemany("DELETE FROM documents WHERE id = ?", [(doc_id,) for doc_id in stale_ids])
                 connection.commit()
             return len(stale_ids)
+

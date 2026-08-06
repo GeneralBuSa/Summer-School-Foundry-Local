@@ -1,17 +1,26 @@
 "use client";
 
+/**
+ * Ana Sohbet Sayfası (Home Component)
+ *
+ * Bu bileşen, kullanıcı ile RAG asistanı arasındaki etkileşimi yönetir.
+ * Sohbet geçmişi state'ini tutar, API isteklerini iletir, tema geçişlerini ve arama ayarlarını sağlar.
+ */
+
 import React, { useState, useRef } from "react";
 import { Header } from "@/components/Header";
 import { Sidebar } from "@/components/Sidebar";
 import { ChatInput } from "@/components/ChatInput";
 import { BookOpen, User, Bot, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 
+/** RAG yanıtındaki kaynak metin verisi arayüzü */
 interface Source {
   source: string;
   chunk: number;
   score: number;
 }
 
+/** Sohbet akışındaki tek bir mesajın veri yapısı arayüzü */
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -19,32 +28,40 @@ interface Message {
   sources?: Source[];
 }
 
+/** Backend API sunucusu taban adresi */
 const API_BASE = "http://localhost:8000";
 
 export default function Home() {
+  // Tema ve sohbet durumu state'leri
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  /** Açık/Koyu tema arasında geçiş yapar */
   const toggleTheme = () => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
-  // Arama Ayarları State
+  // RAG arama parametreleri (sidebar üzerinden ayarlanabilir)
   const [topK, setTopK] = useState(3);
   const [minScore, setMinScore] = useState(0.35);
   const [alpha, setAlpha] = useState(0.7);
 
-  // AbortController referansı
+  // Devam eden isteği iptal etmek için kullanılan AbortController referansı
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Kaynaklar expander açık/kapalı state (message.id -> boolean)
+  // Yanıt kaynaklarının detay görünümünün açık/kapalı durumu (message.id -> boolean)
   const [openSources, setOpenSources] = useState<Record<string, boolean>>({});
 
+  /** Kaynak detay görünümünü açar veya kapatır */
   const toggleSources = (id: string) => {
     setOpenSources((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  /**
+   * Kullanıcı sorusunu sunucuya iletir ve asistan yanıtını sohbet akışına ekler.
+   * @param question Kullanıcının yazdığı soru metni.
+   */
   const handleSend = async (question: string) => {
     const userMsgId = Date.now().toString();
     const userMsg: Message = { id: userMsgId, role: "user", content: question };
@@ -103,12 +120,14 @@ export default function Home() {
     }
   };
 
+  /** Devam eden yanıt üretim sürecini durdurur */
   const handleStop = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
   };
 
+  /** Sohbet ekranındaki tüm mesajları temizler */
   const handleClearChat = () => {
     if (isGenerating && abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -120,7 +139,7 @@ export default function Home() {
     <div className={`flex h-screen w-screen overflow-hidden transition-colors ${
       theme === "dark" ? "bg-black text-zinc-100" : "bg-slate-50 text-zinc-900"
     }`}>
-      {/* Sol Sidebar */}
+      {/* Sol Kenar Çubuğu (Sidebar) */}
       <Sidebar
         topK={topK}
         setTopK={setTopK}
@@ -145,9 +164,10 @@ export default function Home() {
           onToggleTheme={toggleTheme}
         />
 
-        {/* Mesaj Listesi */}
+        {/* Mesaj Listesi Akışı */}
         <main className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 max-w-4xl mx-auto w-full">
           {messages.length === 0 ? (
+
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 my-auto py-20 text-zinc-400">
               <Bot className={`w-12 h-12 stroke-[1.5] ${theme === "dark" ? "text-zinc-800" : "text-zinc-300"}`} />
               <h2 className={`text-lg font-medium ${theme === "dark" ? "text-zinc-300" : "text-zinc-700"}`}>

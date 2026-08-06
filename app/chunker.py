@@ -1,13 +1,23 @@
-"""Belge metnini deterministik ve örtüşen parçalara böler."""
+"""Belge metnini anlamsal bütünlüğü koruyarak ve örtüşen (overlap) parçalara böler.
+
+Bu modül, Markdown başlıkları, paragraf sınırları ve cümle sonlarını dikkate alarak
+LLM embedding işlemleri için optimum boyutta metin parçaları (chunks) oluşturur.
+"""
 
 from __future__ import annotations
-
 
 import re
 
 
 def _split_by_sections(text: str) -> list[str]:
-    """Başlıklar (#) ve paragraf çift satır sonlarına göre metni doğal bölümlere ayırır."""
+    """Metni başlıklar (#, ==, --) ve çift satır sonlarına göre anlamsal mantıksal bölümlere ayırır.
+
+    Args:
+        text (str): Bölünecek tam metin.
+
+    Returns:
+        list[str]: Başlıklara göre ayrılmış bölüm metinleri listesi.
+    """
     lines = text.splitlines()
     sections: list[str] = []
     current_section: list[str] = []
@@ -30,7 +40,22 @@ def _split_by_sections(text: str) -> list[str]:
 
 
 def _best_boundary(text: str, start: int, limit: int) -> int:
-    """Sınırın gerisindeki en anlamlı kırılma noktasını bulur."""
+    """Belirtilen sınır aralığında en anlamlı cümle/paragraf kırılma noktasını bulur.
+
+    Öncelik Sırası:
+    1. Çift satır sonu (\n\n)
+    2. Tek satır sonu (\n)
+    3. Cümle sonu (. , ? , !)
+    4. Kelime boşluğu ( )
+
+    Args:
+        text (str): Kaynak metin.
+        start (int): Başlangıç karakter indeksi.
+        limit (int): Maksimum hedef sınır indeksi.
+
+    Returns:
+        int: En uygun kırılma noktasının indeksi.
+    """
     if limit >= len(text):
         return len(text)
 
@@ -48,7 +73,19 @@ def _best_boundary(text: str, start: int, limit: int) -> int:
 
 
 def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
-    """Metni başlık ve paragraf bütünlüğünü koruyarak parçalara böler."""
+    """Metni başlık ve paragraf bütünlüğünü koruyarak belirlenen boyutta parçalara böler.
+
+    Args:
+        text (str): İşlenecek metin.
+        chunk_size (int): Bir parçanın alabileceği maksimum karakter sayısı.
+        overlap (int): Ardışık iki parça arasında örtüşecek karakter sayısı.
+
+    Returns:
+        list[str]: Üretilen metin parçalarının (chunks) listesi.
+
+    Raises:
+        ValueError: chunk_size pozitif değilse veya overlap geçersizse.
+    """
     if chunk_size <= 0:
         raise ValueError("chunk_size pozitif olmalıdır.")
     if overlap < 0 or overlap >= chunk_size:
@@ -63,6 +100,7 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
 
     current_chunk = ""
     for sec in sections:
+        # Bölüm boyutu chunk_size sınırını aşıyorsa alt parçalara bölme
         if len(sec) > chunk_size:
             if current_chunk:
                 chunks.append(current_chunk.strip())
@@ -84,9 +122,7 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
                     next_start += 1
                 start = next_start
         else:
-            # Başlıkla başlayan bölümleri birbirine karıştırma; bu semantic
-            # chunking'in temel garantisidir. Başlıksız ardışık metinler yine
-            # aynı chunk içinde birleştirilebilir.
+            # Başlıkla başlayan bölümleri anlamsal bütünlük için ayırma
             starts_with_header = sec.lstrip().startswith(("#", "==", "--"))
             if starts_with_header and current_chunk:
                 chunks.append(current_chunk.strip())
@@ -101,3 +137,4 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
         chunks.append(current_chunk.strip())
 
     return chunks
+

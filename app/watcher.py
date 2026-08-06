@@ -1,4 +1,8 @@
-"""knowledge_base klasörünü izleyip değişikliklerde indekslemeyi tetikler."""
+"""knowledge_base klasörünü dinamik olarak izleyip dosya değişikliklerinde otomatik indekslemeyi tetikleyen modül.
+
+Bu modül, `watchdog` kütüphanesini kullanarak bilgi tabanına yeni dosya eklendiğinde,
+mevcut dosya güncellendiğinde veya silindiğinde otomatik re-index sürecini başlatır.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +20,12 @@ from app.repository import SQLiteRepository
 
 
 class KnowledgeBaseHandler(FileSystemEventHandler):
+    """Dosya sistemi olaylarını (oluşturma, değiştirme, silme) yakalayan olay işleyici sınıfı.
+
+    Attributes:
+        repository (SQLiteRepository): Veritabanı yönetim deposu.
+    """
+
     def __init__(self, repository: SQLiteRepository):
         super().__init__()
         self.repository = repository
@@ -23,16 +33,19 @@ class KnowledgeBaseHandler(FileSystemEventHandler):
         self._last_run = 0.0
 
     def _reindex(self) -> None:
+        """Kilit (lock) mekanizması ile sık tetiklemeleri (debounce) önleyerek yeniden indekslemeyi yürütür."""
         with self._lock:
             now = time.monotonic()
             if now - self._last_run < 1.0:
                 return
             self._last_run = now
+
         with FoundryRuntime() as runtime:
             summary = run_ingest(self.repository, runtime)
             print(f"Otomatik indeksleme: {summary.indexed_documents} belge, {summary.chunk_count} parça.")
 
     def _handle(self, event) -> None:
+        """Desteklenen uzantıya sahip dosya olaylarını filtreler ve yeniden indekslemeyi çağırır."""
         if not event.is_directory and Path(event.src_path).suffix.lower() in SUPPORTED_SUFFIXES:
             self._reindex()
 
@@ -42,6 +55,11 @@ class KnowledgeBaseHandler(FileSystemEventHandler):
 
 
 def watch_forever(repository: SQLiteRepository) -> None:
+    """Bilgi tabanı klasörünü kesintisiz (döngü hâlinde) izleyen ana süreç fonksiyonu.
+
+    Args:
+        repository (SQLiteRepository): Kullanılacak veritabanı deposu.
+    """
     KNOWLEDGE_BASE_DIR.mkdir(parents=True, exist_ok=True)
     repository.initialize()
     observer = Observer()
@@ -55,3 +73,4 @@ def watch_forever(repository: SQLiteRepository) -> None:
         observer.stop()
     finally:
         observer.join()
+
