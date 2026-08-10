@@ -5,11 +5,14 @@ Microsoft Foundry Local ile çalışan, yerel RAG (Retrieval-Augmented Generatio
 ## Özellikler
 
 - **Yerel Çalışma:** Model dosyaları ve gerekli çalışma bileşenleri indirildikten sonra cevap üretimi yerel yapılır. İlk model/katalog kontrolünde internet gerekebilir.
+- **Kullanılan Yapay Zekâ Modelleri:** `qwen3-embedding-0.6b` belgeleri ve soruları embedding vektörlerine dönüştürür; Microsoft'un `Phi-3.5-mini` modeli ise bulunan belge parçalarına dayanarak cevap üretir.
+- **Model Tercihi:** `Phi-3.5-mini`, daha düşük donanım ihtiyacı ve daha hızlı yerel çalışması nedeniyle tercih edilmiştir. Belge tabanlı soru-cevap senaryomuz için yeterli performans sunar.
 - **Hibrit Arama:** BM25 + vektör araması + yerel deterministic re-ranking.
 - **Akıllı Parçalama:** Başlık ve paragraf yapısını koruyan semantic chunking.
 - **Çoklu Format:** `.md`, `.txt`, `.pdf`, `.docx`, `.xlsx` ve `.csv` belge desteği. Taranmış PDF'ler için OCR fallback.
 - **Sohbet Hafızası:** Önceki soruları hatırlayan çok turlu diyalog.
-- **Web Arayüzü:** Streamlit tabanlı yerel web UI (belge yükleme, indeksleme, sohbet).
+- **Web Arayüzü:** FastAPI tabanlı backend ve Next.js 14 tabanlı yerel web UI (belge yükleme, indeksleme, sohbet).
+- **Backend / Frontend:** Python ve FastAPI backend; Next.js 14 frontend ile belge yükleme, indeksleme ve sohbet işlemleri sunulur.
 - **Otomatik Senkronizasyon:** `app watch` veya UI üzerinden belge değişikliklerinde otomatik indeksleme.
 - **Kalite Ölçümü:** 25 soruluk golden test seti ile Hit Rate, MRR ve anahtar kelime raporlaması.
 - **Model Uyumluluk Kontrolü:** Embedding modeli değiştiğinde kullanıcıya açık uyarı ve zorunlu yeniden indeksleme.
@@ -118,7 +121,8 @@ app/
 ├── watcher.py         # knowledge_base klasörü otomatik izleme
 ├── prompting.py       # Türkçe sistem promptu + sohbet hafızası
 ├── chat.py            # Soru-cevap akışı
-└── ui.py              # Streamlit web arayüzü
+├── server.py          # FastAPI REST API backend
+└── ui.py              # CLI/UI başlatma yönlendiricisi
 
 tests/
 ├── eval_dataset.json  # 25 soruluk golden test veri seti

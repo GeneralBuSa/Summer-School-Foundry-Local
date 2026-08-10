@@ -59,7 +59,7 @@ flowchart LR
     S --> R["Retriever\ncosine similarity, top-k"]
     QE --> R
     R --> P["Prompt oluşturucu\ncontext + kaynaklar"]
-    P --> C["Foundry Local\nqwen2.5-0.5b"]
+    P --> C["Foundry Local\nphi-3.5-mini"]
     C --> A["Cevap + kaynak listesi"]
     A --> U
 ```
@@ -277,7 +277,7 @@ Kod “tamamlandı” sayılmadan önce aşağıdaki kontrollerin her biri geçm
 MVP kabul testleri geçtikten sonra, bu sırayla ilerlenir:
 
 1. PDF/DOCX için ayrı ve test edilmiş metin çıkarıcı eklemek.
-2. Streamlit ile aynı `chat` servis katmanını kullanan web arayüzü eklemek.
+2. FastAPI ve Next.js ile aynı `chat` servis katmanını kullanan web arayüzünü geliştirmek.
 3. İndeksleme geçmişi ve daha ayrıntılı kaynak paneli eklemek.
 4. Veri hacmi veya çoklu kullanıcı ihtiyacı gerçekten oluşursa SQLite'tan
    PostgreSQL/pgvector (ör. Supabase) seçeneğine geçmek.
