@@ -40,6 +40,40 @@ _COUNTRY_MAP = {
     "japonya": "japan",
     "çin": "china",
     "abd": "united states",
+    "afganistan": "afghanistan",
+    "pakistan": "pakistan",
+    "hindistan": "india",
+    "iran": "iran",
+    "irak": "iraq",
+    "suriye": "syria",
+    "misir": "egypt",
+    "mısır": "egypt",
+    "italya": "italy",
+    "ispanya": "spain",
+    "portekiz": "portugal",
+    "hollanda": "netherlands",
+    "belcika": "belgium",
+    "belçika": "belgium",
+    "isvicre": "switzerland",
+    "isviçre": "switzerland",
+    "avusturya": "austria",
+    "polonya": "poland",
+    "romanya": "romania",
+    "bulgaristan": "bulgaria",
+    "ukrayna": "ukraine",
+    "kanada": "canada",
+    "meksika": "mexico",
+    "brezilya": "brazil",
+    "arjantin": "argentina",
+    "avustralya": "australia",
+    "yeni zelanda": "new zealand",
+    "guney kore": "south korea",
+    "güney kore": "south korea",
+    "endonezya": "indonesia",
+    "endonezya": "indonesia",
+    "nijerya": "nigeria",
+    "guney afrika": "south africa",
+    "güney afrika": "south africa",
 }
 
 
@@ -284,4 +318,3 @@ def has_confident_match(
         if len(query_tokens & passage_tokens) >= min_required_tokens:
             return True
     return max((cosine_similarity(query_embedding, chunk.embedding) for chunk in chunks), default=0.0) >= semantic_threshold
-

@@ -7,6 +7,7 @@ motoru arasında köprü kuran RESTful API uç noktalarını (endpoints) barınd
 from __future__ import annotations
 
 import os
+import logging
 from pathlib import Path
 from typing import List, Optional
 
@@ -28,7 +29,7 @@ app = FastAPI(title="Yerel RAG Asistanı API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -39,6 +40,10 @@ repository.initialize()
 
 # Foundry çalışma zamanı örneği için singleton önbellek değişkeni
 _runtime_instance: Optional[FoundryRuntime] = None
+logger = logging.getLogger(__name__)
+
+# Tek bir yüklemenin belleği aşırı tüketmesini önlemek için üst sınır.
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 
 def get_runtime() -> FoundryRuntime:
@@ -119,8 +124,9 @@ def chat_endpoint(req: ChatRequest):
         }
     except ValueError as val_err:
         raise HTTPException(status_code=400, detail=str(val_err))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Sunucu hatası: {exc}")
+    except Exception:
+        logger.exception("Chat isteği işlenemedi.")
+        raise HTTPException(status_code=500, detail="Sunucu hatası oluştu.")
 
 
 @app.post("/api/upload")
@@ -144,7 +150,12 @@ async def upload_documents(files: List[UploadFile] = File(...)):
             continue
 
         file_path = KNOWLEDGE_BASE_DIR / safe_name
-        content = await uploaded_file.read()
+        content = await uploaded_file.read(MAX_UPLOAD_BYTES + 1)
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"'{safe_name}' dosyası çok büyük. En fazla 25 MB yüklenebilir.",
+            )
         file_path.write_bytes(content)
         saved_files.append(safe_name)
 
@@ -169,8 +180,11 @@ def ingest_endpoint(req: IngestRequest):
             "chunk_count": summary.chunk_count,
             "skipped_documents": summary.skipped_documents,
         }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"İndeksleme hatası: {exc}")
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("İndeksleme başarısız oldu.")
+        raise HTTPException(status_code=500, detail="İndeksleme sırasında sunucu hatası oluştu.")
 
 
 @app.get("/api/documents")
@@ -196,12 +210,15 @@ def preview_document(file_path: str = Query(...)):
     Returns:
         dict: Belge yolu ve içerik metni.
     """
-    target_path = KNOWLEDGE_BASE_DIR / file_path
+    knowledge_base_root = KNOWLEDGE_BASE_DIR.resolve()
+    target_path = (knowledge_base_root / file_path).resolve()
+    if knowledge_base_root not in target_path.parents:
+        raise HTTPException(status_code=400, detail="Geçersiz belge yolu.")
     if not target_path.exists() or not target_path.is_file():
         raise HTTPException(status_code=404, detail="Belge bulunamadı.")
     try:
         content = _read_file_content(target_path)
         return {"file_path": file_path, "content": content}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Belge okunamadı: {exc}")
-
+    except Exception:
+        logger.exception("Belge önizlemesi okunamadı: %s", file_path)
+        raise HTTPException(status_code=500, detail="Belge okunamadı.")
